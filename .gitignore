@@ -43,6 +43,3 @@ Thumbs.db
 application-local.yml
 application-dev.yml
 
-# ETC folder
-ETC/
-
