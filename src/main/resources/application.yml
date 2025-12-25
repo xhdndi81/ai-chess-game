@@ -1,8 +1,10 @@
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   datasource:
-    url: jdbc:mariadb://192.168.24.100:3306/chess
-    username: chess
-    password: chess12#
+    url: ${DATASOURCE_URL:jdbc:mariadb://localhost:3306/chess}
+    username: ${DATASOURCE_USERNAME:chess}
+    password: ${DATASOURCE_PASSWORD:}
     driver-class-name: org.mariadb.jdbc.Driver
   jpa:
     hibernate:
