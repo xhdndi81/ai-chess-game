@@ -4,6 +4,17 @@ let userId = null;
 let userName = null;
 let movesCount = 0;
 let nudgeTimer = null;
+let gameMode = 'single'; // 'single' 또는 'multi'
+
+// 멀티플레이어 관련 변수 (multiplayer.js에서 사용)
+let roomId = null;
+let stompClient = null;
+let myColor = 'w'; // 'w' (백색) 또는 'b' (흑색)
+let isHost = false;
+let opponentName = 'AI'; // 현재 게임의 상대방 이름
+let lastSentFen = null; // 마지막으로 보낸 FEN 추적 (자신이 보낸 메시지 무시용)
+
+// 싱글플레이어 관련 변수 (single-player.js에서 사용)
 let stockfish = null;
 let currentSkillLevel = 5;
 
@@ -41,209 +52,190 @@ function speak(text) {
     }, 50);
 }
 
-// 전문 엔진 초기화
-function initStockfish() {
-    if (typeof Stockfish !== 'undefined') {
-        try {
-            stockfish = Stockfish();
-            stockfish.postMessage('uci');
-            
-            // 마스터 난이도일 때는 Skill Level을 최대로 설정하고 메모리 증가
-            if (currentSkillLevel >= 19) {
-                stockfish.postMessage('setoption name Skill Level value 20');
-                // 마스터 모드: 메모리 사용량 대폭 증가 (32MB -> 128MB)
-                stockfish.postMessage('setoption name Hash value 128');
-            } else {
-                stockfish.postMessage('setoption name Skill Level value ' + currentSkillLevel);
-                // 일반 모드: 메모리 사용량 최적화 (기본 16MB -> 32MB)
-                stockfish.postMessage('setoption name Hash value 32');
-            }
-            
-            stockfish.onmessage = function(event) {
-                if (event.includes('bestmove')) {
-                    const moveStr = event.split(' ')[1];
-                    executeMove(moveStr);
-                }
-            };
-        } catch (e) {
-            console.error("Stockfish init error:", e);
-        }
-    }
-}
-
-// 사용자를 재촉하는 함수
-function startNudgeTimer() {
-    stopNudgeTimer();
-    nudgeTimer = setTimeout(() => {
-        if (game.turn() === 'w' && !game.game_over()) {
-            const nudges = [
-                "어디로 둘지 결정했니? 😊",
-                `${userName}야, 천천히 생각해도 돼!`,
-                "선생님은 기다리고 있어!",
-                `${userName}야, 어떤 전략을 세우고 있니?`,
-                "선생님은 준비 다 됐어! 천천히 해봐~"
-            ];
-            const ment = nudges[Math.floor(Math.random() * nudges.length)];
-            $('#ai-message').text(ment);
-            speak(ment);
-            startNudgeTimer();
-        }
-    }, 30000);
-}
-
-function stopNudgeTimer() {
-    if (nudgeTimer) clearTimeout(nudgeTimer);
-}
-
-function makeAIMove() {
-    if (!stockfish) initStockfish();
-    stopNudgeTimer();
-    $('#ai-message').text('음... 어디로 두면 좋을까? 🤔');
-    
-    if (!stockfish) {
-        // 엔진 로드 실패 시 랜덤 수 (Fallback)
-        const moves = game.moves();
-        executeMove(moves[Math.floor(Math.random() * moves.length)]);
-        return;
-    }
-    
-    // 난이도에 따른 탐색 깊이 조절 (0~20)
-    let depth = 10;
-    let movetime = null; // 기본값: depth만 사용
-    
-    if (currentSkillLevel <= 5) {
-        depth = 10;  // 쉬움
-    } else if (currentSkillLevel <= 12) {
-        depth = 15;  // 보통
-    } else if (currentSkillLevel <= 18) {
-        depth = 20;  // 어려움
-    } else {
-        // 마스터 모드: 최대 깊이 + 충분한 계산 시간
-        depth = 40;
-        movetime = 10000; // 10초 동안 계산 (더 깊은 분석 가능)
-    }
-
-    stockfish.postMessage('position fen ' + game.fen());
-    if (movetime) {
-        // 마스터 모드: depth와 movetime을 함께 사용하여 최대 성능
-        stockfish.postMessage('go depth ' + depth + ' movetime ' + movetime);
-    } else {
-        stockfish.postMessage('go depth ' + depth);
-    } 
-}
-
-function executeMove(moveStr) {
-    // 이미 게임이 종료되었거나 내 차례(White)라면 실행 중단 (중복 실행 방지)
-    if (game.game_over() || game.turn() === 'w') return;
-
-    const move = game.move(moveStr, { sloppy: true });
-    if (move === null) {
-        const moves = game.moves();
-        if (moves.length > 0) {
-            game.move(moves[Math.floor(Math.random() * moves.length)]);
-        }
-    }
-
-    board.position(game.fen());
-    updateStatus();
-    startNudgeTimer();
-    
-    // [비용 최적화] 폰(p)을 잡았을 때는 로컬 멘트, 중요한 말(n,b,r,q)이나 체크일 때만 ChatGPT 호출
-    const isMajorPieceCaptured = move && move.captured && move.captured !== 'p';
-    const isCheckOrOver = game.in_check() || game.game_over();
-    
-    if (isMajorPieceCaptured || isCheckOrOver) {
-        getAIComment();
-    } else {
-        const casualMents = [
-            "와! 정말 좋은 수네!",
-            `${userName}야, 실력이 대단한데?`,
-            "음, 제 차례군요.",
-            "어디로 두면 좋을까?",
-            "선생님도 집중하고 있어요!"
-        ];
-        const ment = casualMents[Math.floor(Math.random() * casualMents.length)];
-        $('#ai-message').text(ment);
-        speak(ment);
-    }
-    checkGameOver();
-}
-
-function getAIComment() {
-    $.ajax({
-        url: '/api/ai/move',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({ 
-            fen: game.fen(), 
-            turn: game.turn() === 'w' ? 'White' : 'Black',
-            userName: userName // 사용자 이름 추가
-        }),
-        success: function(response) {
-            $('#ai-message').text(response.comment);
-            speak(response.comment);
-        }
-    });
-}
-
 function onDragStart(source, piece) {
-    if (game.game_over() || piece.search(/^b/) !== -1) return false;
+    if (game.game_over()) return false;
+    
+    // 멀티플레이어 모드일 때 차례 및 색상 확인
+    if (gameMode === 'multi') {
+        const currentTurn = game.turn();
+        if (currentTurn !== myColor) return false;
+        
+        const pieceColor = piece.charAt(0); // 'w' 또는 'b'
+        if (pieceColor !== myColor) return false;
+    } else {
+        // 싱글 모드: AI는 검은색이므로 흑색 말은 드래그 불가
+        if (piece.search(/^b/) !== -1) return false;
+    }
 }
 
 function onDrop(source, target) {
     const move = game.move({ from: source, to: target, promotion: 'q' });
     if (move === null) return 'snapback';
     
-    stopNudgeTimer();
+    if (gameMode === 'single') stopNudgeTimer();
     updateStatus();
     movesCount++;
 
-    // [비용 최적화] 사용자가 중요한 말(폰 제외)을 잡았거나 체크했을 때만 ChatGPT 호출
-    const isUserMajorCapture = move.captured && move.captured !== 'p';
-    if ((isUserMajorCapture || game.in_check()) && !game.game_over()) {
-        getAIComment();
-    }
+    if (gameMode === 'multi') {
+        sendMoveToServer(source, target, 'q');
+        // 멀티플레이어 모드에서는 서버로부터 상태 업데이트를 받아 처리하므로
+        // 여기서 별도로 checkGameOver를 호출하지 않습니다.
+    } else {
+        const isUserMajorCapture = move.captured && move.captured !== 'p';
+        if ((isUserMajorCapture || game.in_check()) && !game.game_over()) {
+            getAIComment();
+        }
 
-    if (!checkGameOver()) window.setTimeout(makeAIMove, 500);
+        if (!checkGameOver()) window.setTimeout(makeAIMove, 500);
+    }
 }
 
 function onSnapEnd() { board.position(game.fen()); }
 
 function updateStatus() {
+    if (!game) return;
+
     let moveColor = game.turn() === 'b' ? '흑색' : '백색';
-    let status = game.in_checkmate() ? `게임 종료! ${moveColor} 패배.` : 
-                 game.in_draw() ? "게임 종료! 무승부." : `${moveColor} 차례.`;
-    if (game.in_check() && !game.in_checkmate()) status += " (체크!)";
+    const isMate = game.in_checkmate();
+    const isCheck = game.in_check();
+    const isDraw = game.in_draw();
+    
+    let status = isMate ? `게임 종료! ${moveColor} 패배.` : 
+                 isDraw ? "게임 종료! 무승부." : `${moveColor} 차례.`;
+    if (isCheck && !isMate) status += " (체크!)";
     $('#game-status').text(status);
+    
+    if (isMate) {
+        $('#ai-message').text('체크메이트! 게임이 끝났어!');
+    } else if (isCheck) {
+        const checkMsg = '조심해! 체크야! ⚠️';
+        $('#ai-message').text(checkMsg);
+        speak(checkMsg);
+    } else if (isDraw) {
+        const drawMsg = '무승부네! 좋은 승부였어.';
+        $('#ai-message').text(drawMsg);
+        speak(drawMsg);
+    } else {
+        if (gameMode === 'multi') {
+            if (game.turn() === myColor) {
+                $('#ai-message').text('당신의 차례입니다. 멋진 수를 보여주세요! 😊');
+            } else {
+                $('#ai-message').text('상대방이 생각 중입니다... ⏳');
+            }
+        } else {
+            if (game.turn() === 'w') {
+                $('#ai-message').text('어디로 두면 좋을까? 천천히 생각해보렴!');
+            }
+        }
+    }
+    
     updateCapturedPieces();
 }
 
 function updateCapturedPieces() {
-    const history = game.history({ verbose: true });
+    if (!game || !board) return;
+    
+    const initialPieces = {
+        'wP': 8, 'wN': 2, 'wB': 2, 'wR': 2, 'wQ': 1, 'wK': 1,
+        'bP': 8, 'bN': 2, 'bB': 2, 'bR': 2, 'bQ': 1, 'bK': 1
+    };
+    
+    const currentPieces = {};
+    const boardState = game.board();
+    
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const piece = boardState[row][col];
+            if (piece) {
+                const key = piece.color + piece.type.toUpperCase();
+                currentPieces[key] = (currentPieces[key] || 0) + 1;
+            }
+        }
+    }
+    
     const capW = [], capB = [];
-    history.forEach(m => {
-        if (m.captured) {
-            if (m.color === 'w') capB.push('b' + m.captured.toUpperCase());
-            else capW.push('w' + m.captured.toUpperCase());
+    
+    Object.keys(initialPieces).forEach(pieceKey => {
+        const initialCount = initialPieces[pieceKey];
+        const currentCount = currentPieces[pieceKey] || 0;
+        const capturedCount = initialCount - currentCount;
+        
+        if (capturedCount > 0) {
+            const piece = pieceKey.charAt(0) + pieceKey.charAt(1).toUpperCase();
+            for (let i = 0; i < capturedCount; i++) {
+                if (pieceKey.startsWith('w')) {
+                    capW.push(piece);
+                } else {
+                    capB.push(piece);
+                }
+            }
         }
     });
-    const sortFn = (a, b) => ({'P':1,'N':2,'B':3,'R':4,'Q':5}[a[1]] - {'P':1,'N':2,'B':3,'R':4,'Q':5}[b[1]]);
-    capW.sort(sortFn); capB.sort(sortFn);
+    
+    const sortFn = (a, b) => {
+        const order = {'P':1,'N':2,'B':3,'R':4,'Q':5,'K':6};
+        return (order[a[1]] || 0) - (order[b[1]] || 0);
+    };
+    capW.sort(sortFn);
+    capB.sort(sortFn);
+    
     const theme = 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png';
     const img = p => `<img src="${theme.replace('{piece}', p)}" class="captured-piece" />`;
+    
     $('#captured-black').html(capW.map(img).join(''));
     $('#captured-white').html(capB.map(img).join(''));
 }
 
 function checkGameOver() {
     if (game.game_over()) {
-        const result = game.in_checkmate() ? (game.turn() === 'b' ? 'WIN' : 'LOSS') : 'DRAW';
+        const isCheckmate = game.in_checkmate();
+        
+        let message = '';
+        let result = 'DRAW';
+        
+        if (game.in_draw()) {
+            message = '게임 종료! 무승부입니다.';
+        } else {
+            const resultMsg = isCheckmate ? '체크메이트! ' : '게임 종료! ';
+            const winnerColor = game.turn() === 'w' ? 'b' : 'w';
+            
+            if (gameMode === 'multi') {
+                if (winnerColor === myColor) {
+                    message = resultMsg + '승리했습니다! 🎉';
+                    result = 'WIN';
+                } else {
+                    message = resultMsg + '패배했습니다.';
+                    result = 'LOSS';
+                }
+            } else {
+                if (winnerColor === 'w') {
+                    message = resultMsg + '승리했습니다! 🎉';
+                    result = 'WIN';
+                } else {
+                    message = resultMsg + '패배했습니다.';
+                    result = 'LOSS';
+                }
+            }
+        }
+        $('#ai-message').text(message);
+        speak(message);
+
+        let currentOpponentName = 'AI';
+        if (gameMode === 'multi' && opponentName && opponentName !== 'AI' && opponentName !== '상대방') {
+            currentOpponentName = opponentName;
+        }
         $.ajax({
             url: '/api/history/' + userId,
             method: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({ result: result, movesCount: movesCount }),
-            success: function() { alert('게임 종료! 결과가 저장되었습니다.'); }
+            data: JSON.stringify({ result: result, movesCount: movesCount, opponentName: currentOpponentName }),
+            success: function() { 
+                alert('게임 종료! 결과가 저장되었습니다.');
+                // 승리자 또는 무승부인 경우 새 게임 버튼 표시 (싱글 모드 포함)
+                if (result === 'WIN' || result === 'DRAW') {
+                    $('#btn-new-game').show();
+                }
+            }
         });
         return true;
     }
@@ -251,11 +243,13 @@ function checkGameOver() {
 }
 
 $(document).ready(function() {
-    // 저장된 설정 불러오기
+    // 대기방 목록 HTML 로드
+    $('#waiting-rooms-placeholder').load('/waiting-rooms.html');
+
+    $('#btn-new-game').hide();
+    
     const savedName = localStorage.getItem('chess_username');
-    if (savedName) {
-        $('#username').val(savedName);
-    }
+    if (savedName) $('#username').val(savedName);
 
     const savedDiff = localStorage.getItem('chess_difficulty');
     if (savedDiff !== null) {
@@ -263,13 +257,52 @@ $(document).ready(function() {
         currentSkillLevel = parseInt(savedDiff);
     }
 
+    $('.mode-btn').on('click', function() {
+        $('.mode-btn').css('background', '#fff');
+        $(this).css('background', '#ffeb99');
+        
+        if ($(this).attr('id') === 'btn-single-mode') {
+            gameMode = 'single';
+            $('#single-mode-options').show();
+            $('#btn-start').show();
+            $('#btn-create-room').hide();
+        } else {
+            gameMode = 'multi';
+            $('#single-mode-options').hide();
+            $('#btn-start').hide();
+            $('#btn-create-room').hide();
+            
+            const name = $('#username').val();
+            if (!name) { alert('이름을 입력해주세요!'); return; }
+            
+            $.ajax({
+                url: '/api/login',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ name: name }),
+                success: function(user) {
+                    userId = user.id;
+                    userName = user.name;
+                    localStorage.setItem('chess_username', name);
+                    
+                    $('#login-container').hide();
+                    $('#waiting-rooms-container').show();
+                    loadWaitingRooms();
+                    
+                    if (window.roomRefreshInterval) clearInterval(window.roomRefreshInterval);
+                    window.roomRefreshInterval = setInterval(loadWaitingRooms, 5000);
+                }
+            });
+        }
+    });
+    
+    $('#btn-single-mode').trigger('click');
+
     $('#btn-start').on('click', function() {
         const name = $('#username').val();
         if (!name) { alert('이름을 입력해주세요!'); return; }
         
         currentSkillLevel = parseInt($('#difficulty').val());
-        
-        // localStorage에 저장
         localStorage.setItem('chess_username', name);
         localStorage.setItem('chess_difficulty', currentSkillLevel);
 
@@ -287,7 +320,6 @@ $(document).ready(function() {
                 $('#login-container').hide(); $('#game-container').show();
                 initBoard();
                 
-                // 첫 인사 음성 출력 (이름 포함)
                 const welcome = `안녕, ${userName}야! 나는 너의 체스 친구야. 우리 재미있게 놀아보자!`;
                 $('#ai-message').text(welcome);
                 speak(welcome);
@@ -297,8 +329,34 @@ $(document).ready(function() {
         });
     });
 
-    $('#btn-logout').on('click', () => location.reload());
+    // 대기하기 화면 관련 이벤트 (이벤트 위임 사용)
+    $(document).on('click', '#btn-back-to-login', function() {
+        if (window.roomRefreshInterval) {
+            clearInterval(window.roomRefreshInterval);
+            window.roomRefreshInterval = null;
+        }
+        $('#waiting-rooms-container').hide();
+        $('#login-container').show();
+    });
+    
+    $(document).on('click', '#btn-refresh-rooms', function() {
+        loadWaitingRooms();
+    });
+    
+    $(document).on('click', '#btn-create-new-room', function() {
+        if (!userId) { alert('먼저 이름을 입력하고 같이하기를 선택해주세요.'); return; }
+        createRoom();
+    });
+
+    $('#btn-logout').on('click', () => {
+        if (typeof stompClient !== 'undefined' && stompClient && stompClient.connected) {
+            stompClient.disconnect();
+        }
+        location.reload();
+    });
+
     $('#btn-history').on('click', () => {
+        if (!userId) return;
         $.ajax({
             url: '/api/history/' + userId,
             method: 'GET',
@@ -306,22 +364,73 @@ $(document).ready(function() {
                 const tbody = $('#history-table tbody').empty();
                 history.forEach(h => {
                     const res = h.result === 'WIN' ? '승리 🏆' : h.result === 'LOSS' ? '패배' : '무승부';
-                    tbody.append(`<tr><td>${new Date(h.playedAt).toLocaleDateString()}</td><td>${res}</td><td>${h.movesCount}</td></tr>`);
+                    const opponent = h.opponentName || 'AI';
+                    tbody.append(`<tr><td>${new Date(h.playedAt).toLocaleDateString()}</td><td>${res}</td><td>${opponent}</td><td>${h.movesCount}</td></tr>`);
                 });
                 $('#history-modal').show();
             }
         });
     });
+    
+    $('#btn-new-game').on('click', () => {
+        game = new Chess();
+        movesCount = 0;
+        if (typeof lastSentFen !== 'undefined') lastSentFen = null;
+        $('#btn-new-game').hide();
+        
+        if (gameMode === 'multi') {
+            // 같이하기 모드: 같은 방에서 새 게임 시작
+            if (stompClient && stompClient.connected && roomId) {
+                const headers = { userId: userId.toString() };
+                const INITIAL_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+                
+                // 상대방이 아직 남아있는지 확인 (이름이 '상대방'이 아니면 재경기로 간주)
+                const isRematch = opponentName && opponentName !== '상대방' && opponentName !== 'AI';
+                const nextStatus = isRematch ? 'PLAYING' : 'WAITING';
+                const nextMessage = isRematch ? '재경기를 시작합니다! 즐거운 게임 되세요.' : '새 게임을 시작합니다! 상대방을 기다려주세요...';
+
+                // 상대방이 나간 경우에만 이름을 '상대방'으로 초기화
+                if (!isRematch) {
+                    opponentName = '상대방';
+                }
+
+                stompClient.send('/app/game/' + roomId + '/state', headers, JSON.stringify({
+                    fen: INITIAL_FEN,
+                    turn: 'w',
+                    status: nextStatus,
+                    isGameOver: false,
+                    winner: null,
+                    message: nextMessage
+                }));
+            }
+            
+            initBoard();
+            // 메시지는 서버에서 보낸 것을 handleGameStateUpdate에서 처리하므로 여기서 중복 설정 불필요
+            speak('새 게임을 시작합니다!');
+        } else {
+            initBoard();
+            $('#ai-message').text('새 게임을 시작합니다!');
+            speak('새 게임을 시작합니다!');
+            startNudgeTimer();
+        }
+    });
+    
     $('.close').on('click', () => $('#history-modal').hide());
 });
 
 function initBoard() {
+    const position = game.fen() || 'start';
     board = Chessboard('myBoard', {
-        draggable: true, position: 'start',
+        draggable: true, position: position,
         onDragStart: onDragStart, onDrop: onDrop, onSnapEnd: onSnapEnd,
         pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
     });
     updateStatus();
-    initStockfish();
+    $('#btn-new-game').hide();
+    
+    if (gameMode === 'single') {
+        initStockfish();
+    }
+    
     $(window).on('resize', () => board && board.resize());
 }

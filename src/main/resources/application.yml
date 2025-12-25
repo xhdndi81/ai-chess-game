@@ -1,6 +1,16 @@
 spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+  devtools:
+    livereload:
+      enabled: true
+    restart:
+      enabled: true
+  web:
+    resources:
+      static-locations: classpath:/static/
+      cache:
+        period: 0
   datasource:
     url: ${DATASOURCE_URL:jdbc:mariadb://localhost:3306/chess}
     username: ${DATASOURCE_USERNAME:chess}

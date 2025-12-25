@@ -11,11 +11,14 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-@RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class UserController {
 
     private final UserService userService;
+
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
 
     @PostMapping("/login")
     public User login(@RequestBody Map<String, String> request) {
@@ -30,8 +33,11 @@ public class UserController {
     @PostMapping("/history/{userId}")
     public void saveHistory(@PathVariable Long userId, @RequestBody Map<String, Object> request) {
         String resultStr = (String) request.get("result");
-        int movesCount = (int) request.get("movesCount");
-        userService.saveGameResult(userId, GameHistory.GameResult.valueOf(resultStr.toUpperCase()), movesCount);
+        int movesCount = request.get("movesCount") instanceof Integer ? 
+                        (Integer) request.get("movesCount") : 
+                        ((Number) request.get("movesCount")).intValue();
+        String opponentName = (String) request.getOrDefault("opponentName", "AI");
+        userService.saveGameResult(userId, GameHistory.GameResult.valueOf(resultStr.toUpperCase()), movesCount, opponentName);
     }
 }
 

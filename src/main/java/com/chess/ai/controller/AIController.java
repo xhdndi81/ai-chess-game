@@ -8,11 +8,14 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/ai")
-@RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class AIController {
 
     private final AIService aiService;
+
+    public AIController(AIService aiService) {
+        this.aiService = aiService;
+    }
 
     @PostMapping("/move")
     public AIResponse getMove(@RequestBody AIRequest request) {

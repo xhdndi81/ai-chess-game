@@ -11,11 +11,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
     private final GameHistoryRepository gameHistoryRepository;
+
+    public UserService(UserRepository userRepository, GameHistoryRepository gameHistoryRepository) {
+        this.userRepository = userRepository;
+        this.gameHistoryRepository = gameHistoryRepository;
+    }
 
     @Transactional
     public User loginOrRegister(String name) {
@@ -34,7 +38,7 @@ public class UserService {
     }
 
     @Transactional
-    public void saveGameResult(Long userId, GameHistory.GameResult result, int movesCount) {
+    public void saveGameResult(Long userId, GameHistory.GameResult result, int movesCount, String opponentName) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
@@ -42,6 +46,7 @@ public class UserService {
         history.setUser(user);
         history.setResult(result);
         history.setMovesCount(movesCount);
+        history.setOpponentName(opponentName);
         gameHistoryRepository.save(history);
     }
 }

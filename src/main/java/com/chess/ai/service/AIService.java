@@ -12,6 +12,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,8 +22,9 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AIService {
+
+    private static final Logger log = LoggerFactory.getLogger(AIService.class);
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -44,18 +47,18 @@ public class AIService {
                 "아이의 도전을 격려하는 친절한 한국어로 작성하세요. " +
                 "응답은 반드시 JSON 형식: {\"move\": \"SAN기보\", \"comment\": \"멘트\"} 로만 보내세요.";
 
-        String userPrompt = "현재 FEN 상태: " + request.getFen() + 
+        String userPrompt = "현재 FEN 상태: " + request.getFen() +
                 "\n당신의 차례입니다 (" + request.getTurn() + ")" +
                 "\n대결 상대(아이)의 이름: " + request.getUserName() +
                 "\n**반드시 아이의 이름을 부르면서 칭찬이나 격려의 멘트를 작성하세요.**";
 
         Map<String, Object> body = new HashMap<>();
         body.put("model", "gpt-4o-mini");
-        
+
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of("role", "system", "content", systemPrompt));
         messages.add(Map.of("role", "user", "content", userPrompt));
-        
+
         body.put("messages", messages);
         body.put("response_format", Map.of("type", "json_object"));
 
@@ -65,7 +68,7 @@ public class AIService {
             String responseStr = restTemplate.postForObject(apiUrl, entity, String.class);
             JsonNode root = objectMapper.readTree(responseStr);
             String content = root.path("choices").get(0).path("message").path("content").asText();
-            
+
             return objectMapper.readValue(content, AIResponse.class);
         } catch (Exception e) {
             log.error("Error calling OpenAI API", e);
@@ -73,4 +76,3 @@ public class AIService {
         }
     }
 }
-
