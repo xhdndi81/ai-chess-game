@@ -206,8 +206,8 @@ ai-chess-game/
 
 ## 🔒 보안 및 개인정보
 
-- **API 키 보호**: OpenAI API 키는 `.gitignore`에 포함되어 GitHub에 업로드되지 않습니다.
-- **로컬 설정 파일**: 실제 API 키는 `application-local.yml` 파일에 저장하며, 이 파일은 Git에 포함되지 않습니다.
+- **API 키 보호**: OpenAI API 키는 환경변수나 로컬 설정 파일을 통해 관리합니다.
+- **로컬 설정 파일**: 실제 API 키는 `application-local.yml` 파일에 저장합니다.
 - **데이터베이스**: 사용자 이름과 게임 기록만 저장되며, 개인을 식별할 수 있는 추가 정보는 저장하지 않습니다.
 
 ## 🌐 서버 배포
