@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: jdbc:mariadb://192.168.24.100:3306/chess
+    username: chess
+    password: chess12#
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY:your-api-key-here}
+    url: https://api.openai.com/v1/chat/completions
+
+logging:
+  level:
+    com.chess.ai: DEBUG
+

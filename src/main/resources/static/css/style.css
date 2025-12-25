@@ -1,0 +1,387 @@
+html, body {
+    height: 100%;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: 'Nanum Gothic', sans-serif;
+    background-color: #f0f8ff;
+    color: #333;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100dvh;
+}
+
+/* Login Container */
+.container {
+    background-color: white;
+    padding: 30px 20px;
+    border-radius: 25px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    text-align: center;
+    width: 90%;
+    max-width: 380px;
+}
+
+h1 {
+    color: #4a90e2;
+    font-family: 'Jua', sans-serif;
+    font-size: 2.5rem;
+    margin-top: 0;
+}
+
+input[type="text"] {
+    padding: 12px 15px;
+    font-size: 1.1rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    width: 85%;
+    font-family: 'Nanum Gothic', sans-serif;
+    text-align: center;
+}
+
+button {
+    background-color: #ffcc00;
+    border: none;
+    padding: 12px 25px;
+    font-size: 1.2rem;
+    font-family: 'Jua', sans-serif;
+    border-radius: 15px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #e6b800;
+    transition: all 0.1s;
+}
+
+button:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 #e6b800;
+}
+
+.creator-info {
+    margin-top: 30px;
+    font-size: 1rem;
+    color: #999;
+    border-top: 1px dashed #eee;
+    padding-top: 20px;
+}
+
+/* Game View Layout */
+#game-container {
+    width: 100vw;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Top Navigation (Portrait) */
+.top-nav {
+    display: flex;
+    flex-shrink: 0;
+    padding: 8px 15px;
+    background-color: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    align-items: center;
+    justify-content: space-between;
+    height: auto; /* 높이를 내용에 맞게 유동적으로 */
+    min-height: 80px;
+    max-height: 25vh; /* 최대 화면의 1/4까지만 */
+    box-sizing: border-box;
+    z-index: 100;
+}
+
+.ai-chat-area {
+    flex: 1;
+    min-width: 0;
+}
+
+.ai-character {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#ai-img {
+    width: 45px;
+    height: 45px;
+    background-color: #eee;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.speech-bubble {
+    position: relative;
+    background: #fff9c4;
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 1rem;
+    line-height: 1.4;
+    box-shadow: 1px 1px 5px rgba(0,0,0,0.05);
+    text-align: left;
+    white-space: normal;
+    word-break: keep-all;
+    max-height: none; /* 스크롤 제거 */
+    overflow-y: visible; /* 내용이 다 보이도록 */
+    font-weight: 500;
+}
+
+.speech-bubble:after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 0;
+    height: 0;
+    border: 6px solid transparent;
+    border-right-color: #fff9c4;
+    border-left: 0;
+    margin-top: -6px;
+    margin-left: -6px;
+}
+
+.header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    margin-left: 12px;
+    flex-shrink: 0;
+}
+
+.status-container {
+    background-color: #e3f2fd;
+    padding: 4px 10px;
+    border-radius: 8px;
+}
+
+#game-status {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1976d2;
+    white-space: nowrap;
+}
+
+.game-creator {
+    font-size: 0.7rem;
+    color: #bbb;
+    margin-top: 2px;
+}
+
+.nav-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.nav-controls button {
+    padding: 5px 10px;
+    font-size: 1.2rem;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+/* Main Content Area */
+.main-content {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    overflow: hidden;
+}
+
+.board-section {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+}
+
+.captured-area {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 35px;
+    gap: 3px;
+    background-color: rgba(0,0,0,0.03);
+    border-radius: 10px;
+}
+
+.captured-area-landscape {
+    display: none !important;
+}
+
+.captured-piece {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+}
+
+#myBoard {
+    width: min(100vw - 10px, 100vh - 200px) !important;
+    height: min(100vw - 10px, 100vh - 200px) !important;
+    border: 3px solid #4a90e2;
+    box-sizing: border-box;
+    touch-action: none;
+}
+
+/* Landscape Mode Adjustments */
+@media (orientation: landscape) {
+    #game-container {
+        flex-direction: row;
+    }
+
+    .top-nav {
+        width: 200px;
+        height: 100%;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding: 20px 15px;
+        border-right: 2px solid #f0f0f0;
+        border-bottom: none;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+    }
+
+    .ai-chat-area {
+        margin-bottom: 20px;
+        width: 100%;
+    }
+
+    .ai-character {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    #ai-img {
+        width: 60px;
+        height: 60px;
+    }
+
+    .speech-bubble {
+        max-height: 180px;
+        margin-top: 10px;
+        font-size: 1.1rem;
+    }
+
+    .speech-bubble:after {
+        border-right-color: transparent;
+        border-bottom-color: #fff9c4;
+        top: -12px;
+        left: 50%;
+        margin-left: -6px;
+        border-left: 6px solid transparent;
+    }
+
+    .header-right {
+        width: 100%;
+        margin-left: 0;
+        margin-top: auto;
+        align-items: center;
+    }
+
+    .status-container {
+        width: 100%;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    #game-status {
+        font-size: 1.1rem;
+    }
+
+    .nav-controls {
+        width: 100%;
+        justify-content: center;
+        gap: 15px;
+    }
+
+    .board-section {
+        flex-direction: row;
+        gap: 8px;
+        padding: 0 10px;
+    }
+
+    .captured-area {
+        display: flex;
+        flex-direction: column;
+        width: 35px;
+        height: auto;
+        max-height: 90%;
+        min-height: 120px;
+        flex-wrap: wrap;
+        align-content: center;
+    }
+
+    #myBoard {
+        width: min(100vw - 300px, 100vh - 30px) !important;
+        height: min(100vw - 300px, 100vh - 30px) !important;
+    }
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 10vh auto;
+    padding: 25px;
+    border-radius: 25px;
+    width: 85%;
+    max-width: 400px;
+    max-height: 80vh;
+    overflow-y: auto;
+    font-family: 'Nanum Gothic', sans-serif;
+}
+
+.modal-content h2 {
+    font-family: 'Jua', sans-serif;
+    color: #4a90e2;
+    margin-top: 0;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+#history-table th, #history-table td {
+    padding: 10px;
+    font-size: 1rem;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+}
+
+#history-table th {
+    background-color: #f8f9fa;
+    color: #666;
+    font-weight: 700;
+}
