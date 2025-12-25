@@ -47,9 +47,17 @@ function initStockfish() {
         try {
             stockfish = Stockfish();
             stockfish.postMessage('uci');
-            stockfish.postMessage('setoption name Skill Level value ' + currentSkillLevel);
-            // 메모리 사용량 최적화 (기본 16MB -> 32MB로 상향하여 성능 개선)
-            stockfish.postMessage('setoption name Hash value 32');
+            
+            // 마스터 난이도일 때는 Skill Level을 최대로 설정하고 메모리 증가
+            if (currentSkillLevel >= 19) {
+                stockfish.postMessage('setoption name Skill Level value 20');
+                // 마스터 모드: 메모리 사용량 대폭 증가 (32MB -> 128MB)
+                stockfish.postMessage('setoption name Hash value 128');
+            } else {
+                stockfish.postMessage('setoption name Skill Level value ' + currentSkillLevel);
+                // 일반 모드: 메모리 사용량 최적화 (기본 16MB -> 32MB)
+                stockfish.postMessage('setoption name Hash value 32');
+            }
             
             stockfish.onmessage = function(event) {
                 if (event.includes('bestmove')) {
@@ -101,13 +109,27 @@ function makeAIMove() {
     
     // 난이도에 따른 탐색 깊이 조절 (0~20)
     let depth = 10;
-    if (currentSkillLevel <= 5) depth = 8;
-    else if (currentSkillLevel <= 12) depth = 12;
-    else if (currentSkillLevel <= 18) depth = 15;
-    else depth = 18; // 마스터 모드
+    let movetime = null; // 기본값: depth만 사용
+    
+    if (currentSkillLevel <= 5) {
+        depth = 10;  // 쉬움
+    } else if (currentSkillLevel <= 12) {
+        depth = 15;  // 보통
+    } else if (currentSkillLevel <= 18) {
+        depth = 20;  // 어려움
+    } else {
+        // 마스터 모드: 최대 깊이 + 충분한 계산 시간
+        depth = 40;
+        movetime = 10000; // 10초 동안 계산 (더 깊은 분석 가능)
+    }
 
     stockfish.postMessage('position fen ' + game.fen());
-    stockfish.postMessage('go depth ' + depth); 
+    if (movetime) {
+        // 마스터 모드: depth와 movetime을 함께 사용하여 최대 성능
+        stockfish.postMessage('go depth ' + depth + ' movetime ' + movetime);
+    } else {
+        stockfish.postMessage('go depth ' + depth);
+    } 
 }
 
 function executeMove(moveStr) {
