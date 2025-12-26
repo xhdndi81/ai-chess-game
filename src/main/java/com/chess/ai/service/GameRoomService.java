@@ -277,5 +277,72 @@ public class GameRoomService {
 
         gameRoomRepository.save(room);
     }
+
+    @Transactional
+    public GameStateDto sendNudgeMessage(Long roomId, Long fromUserId) {
+        GameRoom room = gameRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+
+        if (room.getStatus() != GameRoom.RoomStatus.PLAYING) {
+            log.warn("Cannot send nudge message: Room {} is not in PLAYING status", roomId);
+            return getGameState(roomId);
+        }
+
+        // 재촉한 사용자와 상대방 식별
+        // 사용자 존재 여부 확인
+        if (!userRepository.existsById(fromUserId)) {
+            log.warn("User {} not found for nudge message", fromUserId);
+            return getGameState(roomId);
+        }
+
+        User opponentUser = null;
+        String opponentName = null;
+        
+        if (room.getHost().getId().equals(fromUserId)) {
+            // 방장이 재촉한 경우, 상대방은 게스트
+            opponentUser = room.getGuest();
+            opponentName = opponentUser != null ? opponentUser.getName() : null;
+        } else if (room.getGuest() != null && room.getGuest().getId().equals(fromUserId)) {
+            // 게스트가 재촉한 경우, 상대방은 방장
+            opponentUser = room.getHost();
+            opponentName = opponentUser != null ? opponentUser.getName() : null;
+        }
+
+        if (opponentName == null) {
+            log.warn("Cannot send nudge message: Opponent not found for room {}", roomId);
+            return getGameState(roomId);
+        }
+
+        // 재촉 메시지 배열 (랜덤 선택)
+        String[] nudgeMessages = {
+            opponentName + "님, 빨리 두세요~ 😊",
+            opponentName + "님, 기다리고 있어요! 💕",
+            opponentName + "님, 생각이 오래 걸리네요! ⏰",
+            opponentName + "님, 빨리빨리! 🚀"
+        };
+
+        // 랜덤으로 메시지 선택
+        String selectedMessage = nudgeMessages[(int) (Math.random() * nudgeMessages.length)];
+
+        // 현재 게임 상태 가져오기
+        GameStateDto gameState = getGameState(roomId);
+        
+        // 메시지를 포함한 GameStateDto 생성
+        GameStateDto nudgeState = new GameStateDto(
+            gameState.getFen(),
+            gameState.getTurn(),
+            gameState.getStatus(),
+            gameState.getIsGameOver(),
+            gameState.getWinner(),
+            gameState.getHostName(),
+            gameState.getGuestName(),
+            selectedMessage
+        );
+
+        // 브로드캐스트는 @SendTo 어노테이션이 처리하므로 여기서는 반환만 함
+        log.info("Nudge message created for room {}: {}", roomId, selectedMessage);
+        
+        return nudgeState;
+    }
 }
 

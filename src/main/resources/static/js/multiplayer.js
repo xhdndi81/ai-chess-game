@@ -59,6 +59,50 @@ function sendMoveToServer(from, to, promotion) {
     }
 }
 
+// 재촉하기 메시지 전송 (쿨다운 적용)
+let nudgeCooldownTimer = null;
+const NUDGE_COOLDOWN_MS = 5000; // 5초 쿨다운
+
+function sendNudgeToServer() {
+    if (!stompClient || !stompClient.connected) {
+        console.error('WebSocket not connected');
+        return;
+    }
+    
+    // 쿨다운 중이면 무시
+    if (nudgeCooldownTimer !== null) {
+        console.log('Nudge is on cooldown');
+        return;
+    }
+    
+    const headers = {
+        userId: userId.toString()
+    };
+    
+    // 재촉 메시지 전송
+    stompClient.send('/app/game/' + roomId + '/nudge', headers, JSON.stringify({}));
+    
+    // 쿨다운 시작
+    const btnNudge = $('#btn-nudge');
+    btnNudge.prop('disabled', true);
+    
+    let remainingSeconds = NUDGE_COOLDOWN_MS / 1000;
+    const originalText = btnNudge.text();
+    btnNudge.text(`⚡ ${remainingSeconds}초`);
+    
+    nudgeCooldownTimer = setInterval(() => {
+        remainingSeconds--;
+        if (remainingSeconds > 0) {
+            btnNudge.text(`⚡ ${remainingSeconds}초`);
+        } else {
+            clearInterval(nudgeCooldownTimer);
+            nudgeCooldownTimer = null;
+            btnNudge.prop('disabled', false);
+            btnNudge.text(originalText);
+        }
+    }, 1000);
+}
+
 // 서버에 게임 상태 업데이트 전송
 function updateGameStateOnServer() {
     if (!stompClient || !stompClient.connected) {
@@ -103,11 +147,22 @@ function handleGameStateUpdate(gameState) {
     
     console.log('handleGameStateUpdate received:', gameState);
     
-    // 메시지가 있으면 표시 (게임 시작 알림 등)
+    // 메시지가 있으면 표시 (게임 시작 알림, 재촉 메시지 등)
     if (gameState.message) {
         console.log('Game Message:', gameState.message);
         $('#ai-message').text(gameState.message);
-        if (gameState.message.includes('참여') || gameState.message.includes('시작')) {
+        
+        // 재촉 메시지인지 확인 (상대방 이름이 포함된 메시지)
+        const isNudgeMessage = gameState.message.includes('님,') && 
+                               (gameState.message.includes('빨리') || 
+                                gameState.message.includes('기다리고') || 
+                                gameState.message.includes('생각이') ||
+                                gameState.message.includes('빨리빨리'));
+        
+        if (isNudgeMessage) {
+            // 재촉 메시지는 음성으로 출력
+            speak(gameState.message);
+        } else if (gameState.message.includes('참여') || gameState.message.includes('시작')) {
             speak(gameState.message);
             // 게임 시작 시 상대방 이름 업데이트
             if (gameMode === 'multi') {

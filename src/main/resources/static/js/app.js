@@ -119,14 +119,25 @@ function updateStatus() {
         if (gameMode === 'multi') {
             if (game.turn() === myColor) {
                 $('#ai-message').text('당신의 차례입니다. 멋진 수를 보여주세요! 😊');
+                // 내 차례일 때는 재촉하기 버튼 숨김
+                $('#btn-nudge').hide();
             } else {
                 $('#ai-message').text('상대방이 생각 중입니다... ⏳');
+                // 상대방 차례일 때는 재촉하기 버튼 표시
+                $('#btn-nudge').show();
             }
         } else {
             if (game.turn() === 'w') {
                 $('#ai-message').text('어디로 두면 좋을까? 천천히 생각해보렴!');
             }
+            // 싱글 모드에서는 재촉하기 버튼 숨김
+            $('#btn-nudge').hide();
         }
+    }
+    
+    // 게임이 종료되었을 때는 재촉하기 버튼 숨김
+    if (game.game_over()) {
+        $('#btn-nudge').hide();
     }
     
     updateCapturedPieces();
@@ -415,6 +426,13 @@ $(document).ready(function() {
         }
     });
     
+    // 재촉하기 버튼 클릭 이벤트
+    $('#btn-nudge').on('click', function() {
+        if (gameMode === 'multi' && typeof sendNudgeToServer === 'function') {
+            sendNudgeToServer();
+        }
+    });
+    
     $('.close').on('click', () => $('#history-modal').hide());
 });
 
@@ -427,6 +445,7 @@ function initBoard() {
     });
     updateStatus();
     $('#btn-new-game').hide();
+    $('#btn-nudge').hide(); // 초기에는 재촉하기 버튼 숨김
     
     if (gameMode === 'single') {
         initStockfish();

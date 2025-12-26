@@ -8,6 +8,7 @@ public class GameStateDto {
     private String winner; // 'w', 'b', 'draw', 또는 null
     private String hostName;
     private String guestName;
+    private String message; // 선택적 메시지 전달용
 
     public GameStateDto() {}
 
@@ -19,6 +20,18 @@ public class GameStateDto {
         this.winner = winner;
         this.hostName = hostName;
         this.guestName = guestName;
+        this.message = null;
+    }
+
+    public GameStateDto(String fen, String turn, String status, Boolean isGameOver, String winner, String hostName, String guestName, String message) {
+        this.fen = fen;
+        this.turn = turn;
+        this.status = status;
+        this.isGameOver = isGameOver;
+        this.winner = winner;
+        this.hostName = hostName;
+        this.guestName = guestName;
+        this.message = message;
     }
 
     public String getFen() { return fen; }
@@ -35,4 +48,6 @@ public class GameStateDto {
     public void setHostName(String hostName) { this.hostName = hostName; }
     public String getGuestName() { return guestName; }
     public void setGuestName(String guestName) { this.guestName = guestName; }
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
 }

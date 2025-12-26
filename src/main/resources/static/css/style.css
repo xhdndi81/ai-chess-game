@@ -192,6 +192,17 @@ button:active {
     white-space: nowrap;
 }
 
+#btn-nudge {
+    background-color: #ff9800 !important;
+    color: white !important;
+}
+
+#btn-nudge:disabled {
+    background-color: #ccc !important;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 /* Main Content Area */
 .main-content {
     flex: 1;
