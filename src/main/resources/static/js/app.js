@@ -246,7 +246,7 @@ function checkGameOver() {
             url: '/api/history/' + userId,
             method: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({ result: result, movesCount: movesCount, opponentName: currentOpponentName }),
+            data: JSON.stringify({ result: result, movesCount: movesCount, opponentName: currentOpponentName, gameType: 'CHESS' }),
             success: function() { 
                 alert('게임 종료! 결과가 저장되었습니다.');
                 // 승리자 또는 무승부인 경우 새 게임 버튼 표시 (싱글 모드 포함)

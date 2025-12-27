@@ -38,13 +38,14 @@ public class UserService {
     }
 
     @Transactional
-    public void saveGameResult(Long userId, GameHistory.GameResult result, int movesCount, String opponentName) {
+    public void saveGameResult(Long userId, GameHistory.GameResult result, int movesCount, String opponentName, GameHistory.GameType gameType) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
         GameHistory history = new GameHistory();
         history.setUser(user);
         history.setResult(result);
+        history.setGameType(gameType);
         history.setMovesCount(movesCount);
         history.setOpponentName(opponentName);
         gameHistoryRepository.save(history);

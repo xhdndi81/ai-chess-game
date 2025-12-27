@@ -2,9 +2,11 @@ package com.chess.ai.service;
 
 import com.chess.ai.dto.GameStateDto;
 import com.chess.ai.dto.RoomDto;
+import com.chess.ai.entity.ChessGameData;
 import com.chess.ai.entity.GameHistory;
 import com.chess.ai.entity.GameRoom;
 import com.chess.ai.entity.User;
+import com.chess.ai.repository.ChessGameDataRepository;
 import com.chess.ai.repository.GameHistoryRepository;
 import com.chess.ai.repository.GameRoomRepository;
 import com.chess.ai.repository.UserRepository;
@@ -26,12 +28,14 @@ public class GameRoomService {
     private static final Logger log = LoggerFactory.getLogger(GameRoomService.class);
 
     private final GameRoomRepository gameRoomRepository;
+    private final ChessGameDataRepository chessGameDataRepository;
     private final UserRepository userRepository;
     private final GameHistoryRepository gameHistoryRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
-    public GameRoomService(GameRoomRepository gameRoomRepository, UserRepository userRepository, GameHistoryRepository gameHistoryRepository, SimpMessagingTemplate messagingTemplate) {
+    public GameRoomService(GameRoomRepository gameRoomRepository, ChessGameDataRepository chessGameDataRepository, UserRepository userRepository, GameHistoryRepository gameHistoryRepository, SimpMessagingTemplate messagingTemplate) {
         this.gameRoomRepository = gameRoomRepository;
+        this.chessGameDataRepository = chessGameDataRepository;
         this.userRepository = userRepository;
         this.gameHistoryRepository = gameHistoryRepository;
         this.messagingTemplate = messagingTemplate;
@@ -47,10 +51,15 @@ public class GameRoomService {
         GameRoom room = new GameRoom();
         room.setHost(host);
         room.setStatus(GameRoom.RoomStatus.WAITING);
-        room.setFen(INITIAL_FEN);
-        room.setTurn("w");
+        room.setGameType(GameRoom.GameType.CHESS);
+        
+        GameRoom savedRoom = gameRoomRepository.save(room);
+        
+        // ChessGameData 생성
+        ChessGameData chessData = new ChessGameData(savedRoom, INITIAL_FEN, "w");
+        chessGameDataRepository.save(chessData);
 
-        return gameRoomRepository.save(room);
+        return savedRoom;
     }
 
     @Transactional
@@ -100,11 +109,16 @@ public class GameRoomService {
         String loserName = loserUser != null ? loserUser.getName() : "상대방";
         
         room.setStatus(GameRoom.RoomStatus.FINISHED);
-        room.setWinner(winner);
+        
+        // ChessGameData 업데이트
+        ChessGameData chessData = chessGameDataRepository.findByRoom(room)
+                .orElseThrow(() -> new IllegalStateException("ChessGameData not found for room " + room.getId()));
+        chessData.setWinner(winner);
+        chessGameDataRepository.save(chessData);
         
         // 승패 기록 저장 (나간 사람 포함)
-        saveGameHistory(winnerUser, GameHistory.GameResult.WIN, loserName);
-        saveGameHistory(loserUser, GameHistory.GameResult.LOSS, winnerName);
+        saveGameHistory(winnerUser, GameHistory.GameResult.WIN, loserName, GameHistory.GameType.CHESS);
+        saveGameHistory(loserUser, GameHistory.GameResult.LOSS, winnerName, GameHistory.GameType.CHESS);
         
         // 게스트가 나간 경우 게스트 정보 초기화
         if (!isHost) {
@@ -129,12 +143,13 @@ public class GameRoomService {
         log.info("User in room {} disconnected. Automatic win for {}", room.getId(), winner);
     }
 
-    private void saveGameHistory(User user, GameHistory.GameResult result, String opponentName) {
+    private void saveGameHistory(User user, GameHistory.GameResult result, String opponentName, GameHistory.GameType gameType) {
         if (user == null) return;
         
         GameHistory history = new GameHistory();
         history.setUser(user);
         history.setResult(result);
+        history.setGameType(gameType);
         history.setOpponentName(opponentName);
         history.setMovesCount(0); // 기권/이탈 시 수 카운트는 일단 0으로 처리
         gameHistoryRepository.save(history);
@@ -202,8 +217,12 @@ public class GameRoomService {
             throw new IllegalStateException("Game is not in progress");
         }
 
+        // ChessGameData 조회
+        ChessGameData chessData = chessGameDataRepository.findByRoom(room)
+                .orElseThrow(() -> new IllegalStateException("ChessGameData not found for room " + roomId));
+
         // 차례 확인
-        String currentTurn = room.getTurn();
+        String currentTurn = chessData.getTurn();
         boolean isHostTurn = currentTurn.equals("w") && room.getHost().getId().equals(userId);
         boolean isGuestTurn = currentTurn.equals("b") && room.getGuest() != null && room.getGuest().getId().equals(userId);
 
@@ -212,10 +231,9 @@ public class GameRoomService {
         }
 
         // FEN과 차례 업데이트
-        room.setFen(fen);
-        room.setTurn(turn);
-
-        gameRoomRepository.save(room);
+        chessData.setFen(fen);
+        chessData.setTurn(turn);
+        chessGameDataRepository.save(chessData);
 
         return getGameState(roomId);
     }
@@ -226,12 +244,16 @@ public class GameRoomService {
 
         boolean isGameOver = room.getStatus() == GameRoom.RoomStatus.FINISHED;
 
+        // ChessGameData 조회
+        ChessGameData chessData = chessGameDataRepository.findByRoom(room)
+                .orElseThrow(() -> new IllegalStateException("ChessGameData not found for room " + roomId));
+
         return new GameStateDto(
-                room.getFen(),
-                room.getTurn(),
+                chessData.getFen(),
+                chessData.getTurn(),
                 room.getStatus().name(),
                 isGameOver,
-                room.getWinner(),
+                chessData.getWinner(),
                 room.getHost().getName(),
                 room.getGuest() != null ? room.getGuest().getName() : null
         );
@@ -242,17 +264,27 @@ public class GameRoomService {
         GameRoom room = gameRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
-        room.setFen(fen);
-        room.setTurn(turn);
+        // ChessGameData 조회 또는 생성
+        ChessGameData chessData = chessGameDataRepository.findByRoom(room)
+                .orElseGet(() -> {
+                    ChessGameData newData = new ChessGameData(room, INITIAL_FEN, "w");
+                    return chessGameDataRepository.save(newData);
+                });
+
+        chessData.setFen(fen);
+        chessData.setTurn(turn);
 
         if (isGameOver) {
             room.setStatus(GameRoom.RoomStatus.FINISHED);
-            room.setWinner(winner);
+            chessData.setWinner(winner);
         } else {
             // 명시적인 상태 전달이 있으면 해당 상태로 변경 (예: WAITING)
             if ("WAITING".equals(status)) {
                 room.setStatus(GameRoom.RoomStatus.WAITING);
-                room.setWinner(null);
+                chessData.setWinner(null);
+                // 새 게임 시작을 위해 초기 FEN으로 리셋
+                chessData.setFen(INITIAL_FEN);
+                chessData.setTurn("w");
                 room.setGuest(null);
                 room.setStartedAt(null);
                 log.info("Room {} manually set to WAITING status", roomId);
@@ -262,19 +294,26 @@ public class GameRoomService {
                 // 상대방이 없으면 WAITING 상태로 변경 (대기방 목록에 나타나도록)
                 if (room.getGuest() == null) {
                     room.setStatus(GameRoom.RoomStatus.WAITING);
-                    room.setWinner(null);
+                    chessData.setWinner(null);
+                    // 새 게임 시작을 위해 초기 FEN으로 리셋
+                    chessData.setFen(INITIAL_FEN);
+                    chessData.setTurn("w");
                     room.setGuest(null); // 명시적으로 null 설정
                     room.setStartedAt(null); // 시작 시간 초기화
                     log.info("Room {} reset to WAITING status for new game (no guest)", roomId);
                 } else {
                     // 상대방이 있으면 PLAYING 상태로 변경
                     room.setStatus(GameRoom.RoomStatus.PLAYING);
-                    room.setWinner(null);
+                    chessData.setWinner(null);
+                    // 새 게임 시작을 위해 초기 FEN으로 리셋
+                    chessData.setFen(INITIAL_FEN);
+                    chessData.setTurn("w");
                     log.info("Room {} reset to PLAYING status for new game (with guest)", roomId);
                 }
             }
         }
 
+        chessGameDataRepository.save(chessData);
         gameRoomRepository.save(room);
     }
 

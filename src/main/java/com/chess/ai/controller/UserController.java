@@ -37,7 +37,9 @@ public class UserController {
                         (Integer) request.get("movesCount") : 
                         ((Number) request.get("movesCount")).intValue();
         String opponentName = (String) request.getOrDefault("opponentName", "AI");
-        userService.saveGameResult(userId, GameHistory.GameResult.valueOf(resultStr.toUpperCase()), movesCount, opponentName);
+        String gameTypeStr = (String) request.getOrDefault("gameType", "CHESS");
+        GameHistory.GameType gameType = GameHistory.GameType.valueOf(gameTypeStr.toUpperCase());
+        userService.saveGameResult(userId, GameHistory.GameResult.valueOf(resultStr.toUpperCase()), movesCount, opponentName, gameType);
     }
 }
 

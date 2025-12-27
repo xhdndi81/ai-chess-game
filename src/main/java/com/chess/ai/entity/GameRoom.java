@@ -24,14 +24,9 @@ public class GameRoom {
     @Column(nullable = false)
     private RoomStatus status;
 
-    @Column(length = 100)
-    private String fen; // 현재 게임 상태 (FEN notation)
-
-    @Column(length = 10)
-    private String turn; // 'w' 또는 'b'
-
-    @Column(length = 10)
-    private String winner; // 'w', 'b', 'draw' 또는 null
+    @Enumerated(EnumType.STRING)
+    @Column(name = "game_type", nullable = false, length = 20)
+    private GameType gameType;
 
     @CreationTimestamp
     private LocalDateTime createdAt;
@@ -48,12 +43,8 @@ public class GameRoom {
     public void setGuest(User guest) { this.guest = guest; }
     public RoomStatus getStatus() { return status; }
     public void setStatus(RoomStatus status) { this.status = status; }
-    public String getFen() { return fen; }
-    public void setFen(String fen) { this.fen = fen; }
-    public String getTurn() { return turn; }
-    public void setTurn(String turn) { this.turn = turn; }
-    public String getWinner() { return winner; }
-    public void setWinner(String winner) { this.winner = winner; }
+    public GameType getGameType() { return gameType; }
+    public void setGameType(GameType gameType) { this.gameType = gameType; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getStartedAt() { return startedAt; }
@@ -63,5 +54,11 @@ public class GameRoom {
         WAITING,    // 대기 중
         PLAYING,    // 게임 진행 중
         FINISHED    // 게임 종료
+    }
+
+    public enum GameType {
+        CHESS,      // 체스
+        OTHELLO,    // 오목 (향후 추가 가능)
+        GO          // 바둑 (향후 추가 가능)
     }
 }

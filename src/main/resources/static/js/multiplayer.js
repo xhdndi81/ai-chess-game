@@ -415,7 +415,7 @@ function handleGameStateUpdate(gameState) {
                 url: '/api/history/' + userId,
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({ result: result, movesCount: movesCount, opponentName: currentOpponentName }),
+                data: JSON.stringify({ result: result, movesCount: movesCount, opponentName: currentOpponentName, gameType: 'CHESS' }),
                 success: function() { 
                     console.log('Game history saved');
                     if (isOpponentDisconnected) {
