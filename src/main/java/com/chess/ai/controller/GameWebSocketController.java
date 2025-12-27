@@ -3,7 +3,6 @@ package com.chess.ai.controller;
 import com.chess.ai.dto.GameStateDto;
 import com.chess.ai.dto.MoveDto;
 import com.chess.ai.service.GameRoomService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -16,12 +15,15 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 
 @Controller
-@RequiredArgsConstructor
 public class GameWebSocketController {
 
     private static final Logger log = LoggerFactory.getLogger(GameWebSocketController.class);
 
     private final GameRoomService gameRoomService;
+
+    public GameWebSocketController(GameRoomService gameRoomService) {
+        this.gameRoomService = gameRoomService;
+    }
 
     @MessageMapping("/game/{roomId}/move")
     @SendTo("/topic/game/{roomId}")

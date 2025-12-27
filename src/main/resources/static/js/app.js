@@ -246,6 +246,14 @@ function checkGameOver() {
         if (gameMode === 'multi' && opponentName && opponentName !== 'AI' && opponentName !== '상대방') {
             currentOpponentName = opponentName;
         }
+        
+        // userId가 없으면 게임 기록 저장 불가
+        if (!userId) {
+            console.error('Cannot save game history: userId is null');
+            alert('게임 종료! 하지만 기록을 저장할 수 없습니다. (사용자 정보 없음)');
+            return true;
+        }
+        
         $.ajax({
             url: '/api/history/' + userId,
             method: 'POST',
@@ -257,6 +265,10 @@ function checkGameOver() {
                 if (result === 'WIN' || result === 'DRAW') {
                     $('#btn-new-game').show();
                 }
+            },
+            error: function(xhr, status, error) {
+                console.error('Failed to save game history:', error);
+                alert('게임 종료! 하지만 기록 저장에 실패했습니다.');
             }
         });
         return true;
@@ -303,46 +315,71 @@ $(document).ready(function() {
         currentSkillLevel = parseInt(savedDiff);
     }
 
-    $('.mode-btn').on('click', function() {
-        $('.mode-btn').css('background', '#fff');
-        $(this).css('background', '#ffeb99');
-        
-        if ($(this).attr('id') === 'btn-single-mode') {
-            gameMode = 'single';
-            $('#single-mode-options').show();
-            $('#btn-start').show();
-            $('#btn-create-room').hide();
-        } else {
-            gameMode = 'multi';
-            $('#single-mode-options').hide();
-            $('#btn-start').hide();
-            $('#btn-create-room').hide();
+    // 모드 버튼 이벤트 핸들러 등록
+    function setupModeButtons() {
+        $('.mode-btn').off('click').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             
-            const name = $('#username').val();
-            if (!name) { alert('이름을 입력해주세요!'); return; }
+            $('.mode-btn').css('background', '#fff');
+            $(this).css('background', '#ffeb99');
             
-            $.ajax({
-                url: '/api/login',
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ name: name }),
-                success: function(user) {
-                    userId = user.id;
-                    userName = user.name;
-                    localStorage.setItem('chess_username', name);
-                    
-                    $('#login-container').hide();
-                    $('#waiting-rooms-container').show();
-                    loadWaitingRooms();
-                    
-                    if (window.roomRefreshInterval) clearInterval(window.roomRefreshInterval);
-                    window.roomRefreshInterval = setInterval(loadWaitingRooms, 5000);
+            if ($(this).attr('id') === 'btn-single-mode') {
+                gameMode = 'single';
+                $('#single-mode-options').show();
+                $('#btn-start').show();
+                $('#btn-create-room').hide();
+            } else {
+                gameMode = 'multi';
+                $('#single-mode-options').hide();
+                $('#btn-start').hide();
+                $('#btn-create-room').hide();
+                
+                const name = $('#username').val();
+                if (!name) { 
+                    alert('이름을 입력해주세요!'); 
+                    // 다시 혼자하기 모드로 돌아가기
+                    $('#btn-single-mode').trigger('click');
+                    return; 
                 }
-            });
-        }
-    });
+                
+                $.ajax({
+                    url: '/api/login',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ name: name }),
+                    success: function(user) {
+                        userId = user.id;
+                        userName = user.name;
+                        localStorage.setItem('chess_username', name);
+                        
+                        $('#login-container').hide();
+                        $('#waiting-rooms-container').show();
+                        loadWaitingRooms();
+                        
+                        if (window.roomRefreshInterval) clearInterval(window.roomRefreshInterval);
+                        window.roomRefreshInterval = setInterval(loadWaitingRooms, 5000);
+                    },
+                    error: function() {
+                        alert('로그인에 실패했습니다. 다시 시도해주세요.');
+                        // 다시 혼자하기 모드로 돌아가기
+                        $('#btn-single-mode').trigger('click');
+                    }
+                });
+            }
+        });
+    }
     
-    $('#btn-single-mode').trigger('click');
+    // 초기 설정
+    setupModeButtons();
+    
+    // 초기 상태: 혼자하기 모드 선택
+    gameMode = 'single';
+    $('#single-mode-options').show();
+    $('#btn-start').show();
+    $('#btn-create-room').hide();
+    $('#btn-single-mode').css('background', '#ffeb99');
+    $('#btn-multi-mode').css('background', '#fff');
 
     $('#btn-start').on('click', function() {
         const name = $('#username').val();

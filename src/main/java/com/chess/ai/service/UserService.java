@@ -1,5 +1,6 @@
 package com.chess.ai.service;
 
+import com.chess.ai.dto.GameHistoryDto;
 import com.chess.ai.entity.GameHistory;
 import com.chess.ai.entity.User;
 import com.chess.ai.repository.GameHistoryRepository;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -31,10 +33,21 @@ public class UserService {
                 });
     }
 
-    public List<GameHistory> getGameHistory(Long userId) {
+    public List<GameHistoryDto> getGameHistory(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        return gameHistoryRepository.findByUserOrderByPlayedAtDesc(user);
+        List<GameHistory> histories = gameHistoryRepository.findByUserOrderByPlayedAtDesc(user);
+        return histories.stream()
+                .map(h -> new GameHistoryDto(
+                        h.getId(),
+                        h.getUser().getName(),
+                        h.getResult(),
+                        h.getGameType(),
+                        h.getMovesCount(),
+                        h.getOpponentName(),
+                        h.getPlayedAt()
+                ))
+                .collect(Collectors.toList());
     }
 
     @Transactional

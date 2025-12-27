@@ -1,5 +1,6 @@
 package com.chess.ai.controller;
 
+import com.chess.ai.dto.GameHistoryDto;
 import com.chess.ai.entity.GameHistory;
 import com.chess.ai.entity.User;
 import com.chess.ai.service.UserService;
@@ -26,7 +27,7 @@ public class UserController {
     }
 
     @GetMapping("/history/{userId}")
-    public List<GameHistory> getHistory(@PathVariable Long userId) {
+    public List<GameHistoryDto> getHistory(@PathVariable Long userId) {
         return userService.getGameHistory(userId);
     }
 

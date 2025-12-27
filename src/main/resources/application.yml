@@ -11,6 +11,9 @@ spring:
       static-locations: classpath:/static/
       cache:
         period: 0
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
   datasource:
     url: ${DATASOURCE_URL:jdbc:mariadb://localhost:3306/chess}
     username: ${DATASOURCE_USERNAME:chess}

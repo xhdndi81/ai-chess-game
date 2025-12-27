@@ -4,7 +4,6 @@ import com.chess.ai.dto.AIRequest;
 import com.chess.ai.dto.AIResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -21,13 +20,17 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 public class AIService {
 
     private static final Logger log = LoggerFactory.getLogger(AIService.class);
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    
+    public AIService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+        this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
+    }
 
     @Value("${openai.api.key}")
     private String apiKey;

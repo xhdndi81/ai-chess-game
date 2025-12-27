@@ -175,12 +175,15 @@ button:active {
 
 .nav-controls {
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+    max-width: 100%;
 }
 
 .nav-controls button {
-    padding: 5px 12px;
-    font-size: 0.9rem;
+    padding: 5px 10px;
+    font-size: 0.85rem;
     background-color: #f5f5f5;
     border-radius: 8px;
     box-shadow: none;
@@ -190,6 +193,9 @@ button:active {
     align-items: center;
     gap: 4px;
     white-space: nowrap;
+    flex: 0 0 calc(50% - 3px);
+    max-width: calc(50% - 3px);
+    justify-content: center;
 }
 
 #btn-nudge {
@@ -275,6 +281,34 @@ button:active {
     touch-action: none;
 }
 
+/* Mobile Portrait Mode - Small screens */
+@media (max-width: 480px) and (orientation: portrait) {
+    .nav-controls {
+        gap: 5px;
+    }
+    
+    .nav-controls button {
+        padding: 6px 8px;
+        font-size: 0.8rem;
+        flex: 0 0 calc(50% - 2.5px);
+        max-width: calc(50% - 2.5px);
+    }
+}
+
+/* Portrait Mode - All sizes */
+@media (orientation: portrait) {
+    .nav-controls {
+        gap: 6px;
+        justify-content: center;
+    }
+    
+    .nav-controls button {
+        flex: 0 0 calc(50% - 3px);
+        max-width: calc(50% - 3px);
+        justify-content: center;
+    }
+}
+
 /* Landscape Mode Adjustments */
 @media (orientation: landscape) {
     #game-container {
@@ -342,7 +376,16 @@ button:active {
     .nav-controls {
         width: 100%;
         justify-content: center;
-        gap: 15px;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .nav-controls button {
+        flex: 0 0 calc(50% - 4px);
+        max-width: calc(50% - 4px);
+        justify-content: center;
+        padding: 8px 10px;
+        font-size: 0.9rem;
     }
 
     .board-section {

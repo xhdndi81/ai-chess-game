@@ -94,6 +94,18 @@ function initSpeechRecognition() {
         return;
     }
 
+    // HTTPS 체크 (localhost는 예외)
+    const isSecureContext = window.isSecureContext || window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isSecureContext) {
+        console.warn('Speech Recognition requires HTTPS. Current protocol:', window.location.protocol);
+        $('#btn-voice-message').hide();
+        // 사용자에게 경고 메시지 표시
+        if (gameMode === 'multi') {
+            $('#ai-message').text('⚠️ 음성 메시지 기능은 HTTPS에서만 사용할 수 있습니다. 서버에 SSL 인증서를 설정해주세요.');
+        }
+        return;
+    }
+
     // localStorage에서 음성 사용 허용 여부 확인
     const VOICE_PERMISSION_KEY = 'voicePermissionAllowed';
     const voicePermissionAllowed = localStorage.getItem(VOICE_PERMISSION_KEY) === 'true';
@@ -421,6 +433,13 @@ function handleGameStateUpdate(gameState) {
             // 상대방이 나간 경우를 감지 (메시지에 "나갔습니다" 포함 여부 확인)
             const isOpponentDisconnected = gameState.message && gameState.message.includes('나갔습니다');
             
+            // userId가 없으면 게임 기록 저장 불가
+            if (!userId) {
+                console.error('Cannot save game history: userId is null');
+                alert('게임 종료! 하지만 기록을 저장할 수 없습니다. (사용자 정보 없음)');
+                return;
+            }
+            
             $.ajax({
                 url: '/api/history/' + userId,
                 method: 'POST',
@@ -451,6 +470,10 @@ function handleGameStateUpdate(gameState) {
                             }, 2000); // 결과 확인을 위해 2초 대기
                         }
                     }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Failed to save game history:', error);
+                    alert('게임 종료! 하지만 기록 저장에 실패했습니다.');
                 }
             });
         }
