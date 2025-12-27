@@ -491,11 +491,31 @@ function loadWaitingRooms() {
                 roomsList.append('<p style="text-align: center; padding: 20px;">대기 중인 방이 없습니다.</p>');
             } else {
                 rooms.forEach(room => {
+                    // 날짜 파싱 안전하게 처리
+                    let createdAtStr = '알 수 없음';
+                    if (room.createdAt) {
+                        try {
+                            // ISO-8601 형식 (예: "2025-12-27T16:04:41") 또는 다른 형식 지원
+                            const date = new Date(room.createdAt);
+                            if (!isNaN(date.getTime())) {
+                                createdAtStr = date.toLocaleString('ko-KR', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse date:', room.createdAt, e);
+                        }
+                    }
+                    
                     const roomElement = $(`
                         <div style="padding: 15px; margin: 10px 0; border: 2px solid #ffcc00; border-radius: 10px; background: #fff; cursor: pointer;">
                             <div style="font-size: 1.2rem; font-weight: bold;">${room.hostName} 대기 중...</div>
                             <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
-                                생성 시간: ${new Date(room.createdAt).toLocaleString()}
+                                생성 시간: ${createdAtStr}
                             </div>
                         </div>
                     `);

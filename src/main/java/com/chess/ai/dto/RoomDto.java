@@ -1,11 +1,14 @@
 package com.chess.ai.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDateTime;
 
 public class RoomDto {
     private Long id;
     private String hostName;
     private String status;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
 
     public RoomDto() {}

@@ -86,18 +86,19 @@ button:active {
     padding: 8px 15px;
     background-color: #fff;
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     height: auto; /* 높이를 내용에 맞게 유동적으로 */
     min-height: 80px;
-    max-height: 25vh; /* 최대 화면의 1/4까지만 */
     box-sizing: border-box;
     z-index: 100;
+    overflow: visible;
 }
 
 .ai-chat-area {
     flex: 1;
     min-width: 0;
+    max-width: calc(100% - 200px); /* 버튼 영역을 위한 공간 확보 */
 }
 
 .ai-character {
@@ -151,6 +152,8 @@ button:active {
     gap: 8px;
     margin-left: 12px;
     flex-shrink: 0;
+    min-width: 180px; /* 버튼 영역 최소 너비 확보 */
+    max-width: 200px; /* 버튼 영역 최대 너비 제한 */
 }
 
 .status-container {
@@ -283,8 +286,29 @@ button:active {
 
 /* Mobile Portrait Mode - Small screens */
 @media (max-width: 480px) and (orientation: portrait) {
+    .top-nav {
+        padding: 8px 10px;
+        flex-wrap: nowrap;
+    }
+    
+    .ai-chat-area {
+        flex: 1;
+        min-width: 0;
+        max-width: calc(100% - 160px);
+    }
+    
+    .header-right {
+        flex-shrink: 0;
+        min-width: 150px;
+        max-width: 160px;
+        margin-left: 8px;
+        align-items: flex-end;
+    }
+    
     .nav-controls {
         gap: 5px;
+        width: 100%;
+        max-width: 160px;
     }
     
     .nav-controls button {
@@ -293,13 +317,49 @@ button:active {
         flex: 0 0 calc(50% - 2.5px);
         max-width: calc(50% - 2.5px);
     }
+    
+    .speech-bubble {
+        font-size: 0.9rem;
+        padding: 6px 10px;
+    }
+    
+    #ai-img {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .status-container {
+        font-size: 0.85rem;
+        padding: 3px 8px;
+    }
 }
 
 /* Portrait Mode - All sizes */
 @media (orientation: portrait) {
+    .top-nav {
+        flex-wrap: nowrap;
+        align-items: flex-start;
+    }
+    
+    .ai-chat-area {
+        flex: 1;
+        min-width: 0;
+        max-width: calc(100% - 200px);
+    }
+    
+    .header-right {
+        flex-shrink: 0;
+        min-width: 180px;
+        max-width: 200px;
+        margin-left: 12px;
+        align-items: flex-end;
+    }
+    
     .nav-controls {
         gap: 6px;
-        justify-content: center;
+        justify-content: flex-end;
+        width: 100%;
+        max-width: 200px;
     }
     
     .nav-controls button {
