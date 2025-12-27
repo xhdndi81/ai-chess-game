@@ -63,6 +63,140 @@ function sendMoveToServer(from, to, promotion) {
 let nudgeCooldownTimer = null;
 const NUDGE_COOLDOWN_MS = 5000; // 5초 쿨다운
 
+// 음성 메시지 관련 변수
+let recognition = null;
+let isRecording = false;
+let finalTranscript = '';
+
+// Web Speech API 지원 여부 확인
+function isSpeechRecognitionSupported() {
+    return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+}
+
+// 마이크 권한 확인 및 요청
+async function checkMicrophonePermission() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // 권한이 허용되었으면 스트림 종료
+        stream.getTracks().forEach(track => track.stop());
+        return true;
+    } catch (error) {
+        console.log('Microphone permission:', error.name);
+        return false;
+    }
+}
+
+// SpeechRecognition 초기화
+function initSpeechRecognition() {
+    if (!isSpeechRecognitionSupported()) {
+        console.warn('Speech Recognition is not supported in this browser');
+        $('#btn-voice-message').hide();
+        return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    
+    recognition.lang = 'ko-KR';
+    recognition.continuous = false; // 버튼을 떼면 중지
+    recognition.interimResults = true; // 중간 결과 표시
+    
+    recognition.onstart = function() {
+        isRecording = true;
+        finalTranscript = '';
+        $('#btn-voice-message').addClass('recording');
+        $('#btn-voice-message').text('🎤 녹음 중...');
+    };
+    
+    recognition.onresult = function(event) {
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript;
+            } else {
+                interimTranscript += transcript;
+            }
+        }
+        
+        // 중간 결과를 AI 메시지 영역에 표시
+        if (interimTranscript) {
+            $('#ai-message').text('🎤 ' + interimTranscript);
+        }
+    };
+    
+    recognition.onerror = function(event) {
+        console.error('Speech recognition error:', event.error);
+        isRecording = false;
+        $('#btn-voice-message').removeClass('recording');
+        $('#btn-voice-message').text('🎤 말하기');
+        
+        let errorMsg = '음성 인식 오류가 발생했습니다.';
+        if (event.error === 'no-speech') {
+            errorMsg = '음성이 감지되지 않았습니다.';
+        } else if (event.error === 'not-allowed') {
+            errorMsg = '마이크 권한이 필요합니다. 브라우저 설정에서 권한을 허용해주세요.';
+            $('#ai-message').text(errorMsg);
+        } else {
+            $('#ai-message').text(errorMsg);
+        }
+    };
+    
+    recognition.onend = function() {
+        isRecording = false;
+        $('#btn-voice-message').removeClass('recording');
+        $('#btn-voice-message').text('🎤 말하기');
+        
+        // 최종 텍스트가 있으면 전송
+        if (finalTranscript.trim()) {
+            sendVoiceMessageToServer(finalTranscript.trim());
+            $('#ai-message').text('메시지를 전송했습니다: ' + finalTranscript.trim());
+        } else {
+            $('#ai-message').text('음성이 감지되지 않았습니다.');
+        }
+    };
+    
+    // 마이크 권한을 미리 요청하여 첫 사용 시에만 팝업이 뜨도록 함
+    // 권한이 이미 허용된 경우 팝업이 뜨지 않음
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function(stream) {
+                // 권한이 허용되었으면 스트림 종료 (실제로는 사용하지 않음)
+                stream.getTracks().forEach(track => track.stop());
+                console.log('Microphone permission granted');
+            })
+            .catch(function(error) {
+                console.log('Microphone permission denied or not available:', error);
+                // 권한이 거부되었거나 사용할 수 없는 경우 버튼 숨김
+                $('#btn-voice-message').hide();
+            });
+    }
+}
+
+// 음성 메시지 전송
+function sendVoiceMessageToServer(text) {
+    if (!stompClient || !stompClient.connected) {
+        console.error('WebSocket not connected');
+        alert('서버와 연결이 끊어졌습니다. 페이지를 새로고침해주세요.');
+        return;
+    }
+    
+    if (!text || text.trim() === '') {
+        console.warn('Empty voice message, not sending');
+        return;
+    }
+    
+    const headers = {
+        userId: userId.toString()
+    };
+    
+    // 음성 메시지 전송
+    stompClient.send('/app/game/' + roomId + '/voice-message', headers, JSON.stringify({
+        message: text.trim()
+    }));
+}
+
 function sendNudgeToServer() {
     if (!stompClient || !stompClient.connected) {
         console.error('WebSocket not connected');
@@ -147,10 +281,9 @@ function handleGameStateUpdate(gameState) {
     
     console.log('handleGameStateUpdate received:', gameState);
     
-    // 메시지가 있으면 표시 (게임 시작 알림, 재촉 메시지 등)
+    // 메시지가 있으면 표시 (게임 시작 알림, 재촉 메시지, 음성 메시지 등)
     if (gameState.message) {
         console.log('Game Message:', gameState.message);
-        $('#ai-message').text(gameState.message);
         
         // 재촉 메시지인지 확인 (상대방 이름이 포함된 메시지)
         const isNudgeMessage = gameState.message.includes('님,') && 
@@ -159,31 +292,47 @@ function handleGameStateUpdate(gameState) {
                                 gameState.message.includes('생각이') ||
                                 gameState.message.includes('빨리빨리'));
         
-        if (isNudgeMessage) {
-            // 재촉 메시지는 음성으로 출력
+        // 음성 메시지인지 확인 (재촉 메시지가 아니고, 특정 패턴이 없는 경우)
+        const isVoiceMessage = !isNudgeMessage && 
+                               !gameState.message.includes('참여') && 
+                               !gameState.message.includes('시작') &&
+                               !gameState.message.includes('나갔습니다');
+        
+        if (isVoiceMessage) {
+            // 음성 메시지는 상대방 이름과 함께 표시
+            const senderName = isHost ? gameState.guestName : gameState.hostName;
+            const displayMessage = senderName ? `${senderName}: ${gameState.message}` : gameState.message;
+            $('#ai-message').text(displayMessage);
             speak(gameState.message);
-        } else if (gameState.message.includes('참여') || gameState.message.includes('시작')) {
-            speak(gameState.message);
-            // 게임 시작 시 상대방 이름 업데이트
-            if (gameMode === 'multi') {
-                if (isHost && gameState.guestName) {
-                    opponentName = gameState.guestName;
-                } else if (!isHost && gameState.hostName) {
-                    opponentName = gameState.hostName;
-                }
-            }
+        } else {
+            $('#ai-message').text(gameState.message);
             
-            // 새 게임 시작 메시지인 경우 보드 초기화
-            if (gameState.message.includes('새 게임')) {
-                game = new Chess();
-                movesCount = 0;
-                lastSentFen = null;
-                if (gameState.fen) {
-                    game.load(gameState.fen);
+            if (isNudgeMessage) {
+                // 재촉 메시지는 음성으로 출력
+                speak(gameState.message);
+            } else if (gameState.message.includes('참여') || gameState.message.includes('시작')) {
+                speak(gameState.message);
+                // 게임 시작 시 상대방 이름 업데이트
+                if (gameMode === 'multi') {
+                    if (isHost && gameState.guestName) {
+                        opponentName = gameState.guestName;
+                    } else if (!isHost && gameState.hostName) {
+                        opponentName = gameState.hostName;
+                    }
                 }
-                board.position(game.fen());
-                updateStatus();
-                $('#btn-new-game').hide();
+                
+                // 새 게임 시작 메시지인 경우 보드 초기화
+                if (gameState.message.includes('새 게임')) {
+                    game = new Chess();
+                    movesCount = 0;
+                    lastSentFen = null;
+                    if (gameState.fen) {
+                        game.load(gameState.fen);
+                    }
+                    board.position(game.fen());
+                    updateStatus();
+                    $('#btn-new-game').hide();
+                }
             }
         }
     }
@@ -364,6 +513,11 @@ function createRoom() {
                     initBoard();
                     connectWebSocket(roomId);
                     
+                    // Speech Recognition 초기화
+                    if (typeof initSpeechRecognition === 'function') {
+                        initSpeechRecognition();
+                    }
+                    
                     setTimeout(() => {
                         $('#ai-message').text('방을 만들었어요! 상대방이 들어올 때까지 기다려주세요...');
                     }, 500);
@@ -415,6 +569,11 @@ function joinRoom(targetRoomId) {
                     
                     initBoard();
                     connectWebSocket(roomId);
+                    
+                    // Speech Recognition 초기화
+                    if (typeof initSpeechRecognition === 'function') {
+                        initSpeechRecognition();
+                    }
                     
                     setTimeout(() => {
                         const message = `${gameState.hostName}님과의 게임이 시작되었습니다!`;

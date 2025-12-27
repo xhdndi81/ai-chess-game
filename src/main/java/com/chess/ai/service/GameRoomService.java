@@ -344,5 +344,40 @@ public class GameRoomService {
         
         return nudgeState;
     }
+
+    @Transactional
+    public GameStateDto sendVoiceMessage(Long roomId, Long fromUserId, String message) {
+        GameRoom room = gameRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+
+        if (room.getStatus() != GameRoom.RoomStatus.PLAYING) {
+            log.warn("Cannot send voice message: Room {} is not in PLAYING status", roomId);
+            return getGameState(roomId);
+        }
+
+        // 사용자 존재 여부 확인
+        if (!userRepository.existsById(fromUserId)) {
+            log.warn("User {} not found for voice message", fromUserId);
+            return getGameState(roomId);
+        }
+
+        // 현재 게임 상태 가져오기
+        GameStateDto gameState = getGameState(roomId);
+        
+        // 메시지를 포함한 GameStateDto 생성
+        GameStateDto voiceState = new GameStateDto(
+            gameState.getFen(),
+            gameState.getTurn(),
+            gameState.getStatus(),
+            gameState.getIsGameOver(),
+            gameState.getWinner(),
+            gameState.getHostName(),
+            gameState.getGuestName(),
+            message
+        );
+        
+        log.info("Voice message created for room {}: {}", roomId, message);
+        return voiceState;
+    }
 }
 

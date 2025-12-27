@@ -119,25 +119,32 @@ function updateStatus() {
         if (gameMode === 'multi') {
             if (game.turn() === myColor) {
                 $('#ai-message').text('당신의 차례입니다. 멋진 수를 보여주세요! 😊');
-                // 내 차례일 때는 재촉하기 버튼 숨김
+                // 내 차례일 때는 재촉하기 버튼과 말하기 버튼 숨김
                 $('#btn-nudge').hide();
+                $('#btn-voice-message').hide();
             } else {
                 $('#ai-message').text('상대방이 생각 중입니다... ⏳');
-                // 상대방 차례일 때는 재촉하기 버튼 표시
+                // 상대방 차례일 때는 재촉하기 버튼과 말하기 버튼 표시
                 $('#btn-nudge').show();
+                // Web Speech API 지원 여부 확인 후 말하기 버튼 표시
+                if (typeof isSpeechRecognitionSupported === 'function' && isSpeechRecognitionSupported()) {
+                    $('#btn-voice-message').show();
+                }
             }
         } else {
             if (game.turn() === 'w') {
                 $('#ai-message').text('어디로 두면 좋을까? 천천히 생각해보렴!');
             }
-            // 싱글 모드에서는 재촉하기 버튼 숨김
+            // 싱글 모드에서는 재촉하기 버튼과 말하기 버튼 숨김
             $('#btn-nudge').hide();
+            $('#btn-voice-message').hide();
         }
     }
     
-    // 게임이 종료되었을 때는 재촉하기 버튼 숨김
+    // 게임이 종료되었을 때는 재촉하기 버튼과 말하기 버튼 숨김
     if (game.game_over()) {
         $('#btn-nudge').hide();
+        $('#btn-voice-message').hide();
     }
     
     updateCapturedPieces();
@@ -433,6 +440,27 @@ $(document).ready(function() {
         }
     });
     
+    // 말하기 버튼 이벤트 핸들러 (mousedown/touchstart: 녹음 시작, mouseup/touchend: 녹음 중지)
+    const btnVoiceMessage = $('#btn-voice-message');
+    
+    btnVoiceMessage.on('mousedown touchstart', function(e) {
+        e.preventDefault();
+        if (gameMode === 'multi' && recognition && !isRecording) {
+            try {
+                recognition.start();
+            } catch (err) {
+                console.error('Failed to start recognition:', err);
+            }
+        }
+    });
+    
+    btnVoiceMessage.on('mouseup touchend mouseleave', function(e) {
+        e.preventDefault();
+        if (recognition && isRecording) {
+            recognition.stop();
+        }
+    });
+    
     $('.close').on('click', () => $('#history-modal').hide());
 });
 
@@ -446,6 +474,7 @@ function initBoard() {
     updateStatus();
     $('#btn-new-game').hide();
     $('#btn-nudge').hide(); // 초기에는 재촉하기 버튼 숨김
+    $('#btn-voice-message').hide(); // 초기에는 말하기 버튼 숨김
     
     if (gameMode === 'single') {
         initStockfish();

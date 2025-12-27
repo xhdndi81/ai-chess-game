@@ -13,6 +13,8 @@ import org.springframework.stereotype.Controller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
+
 @Controller
 @RequiredArgsConstructor
 public class GameWebSocketController {
@@ -127,6 +129,40 @@ public class GameWebSocketController {
             return gameRoomService.sendNudgeMessage(roomId, userId);
         } catch (Exception e) {
             log.error("Error handling nudge", e);
+            return null;
+        }
+    }
+
+    @MessageMapping("/game/{roomId}/voice-message")
+    @SendTo("/topic/game/{roomId}")
+    public GameStateDto handleVoiceMessage(
+            @DestinationVariable Long roomId,
+            @Payload Map<String, String> payload,
+            SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            // 헤더에서 userId 추출
+            String userIdStr = headerAccessor.getFirstNativeHeader("userId");
+            if (userIdStr == null) {
+                userIdStr = (String) headerAccessor.getSessionAttributes().get("userId");
+            }
+
+            Long userId = userIdStr != null ? Long.parseLong(userIdStr) : null;
+
+            if (userId == null) {
+                log.warn("UserId not found in headers or session");
+                return null;
+            }
+
+            String message = payload.get("message");
+            if (message == null || message.trim().isEmpty()) {
+                log.warn("Empty voice message received");
+                return gameRoomService.getGameState(roomId);
+            }
+
+            // 음성 메시지 전송 및 반환 (메시지가 포함된 GameStateDto)
+            return gameRoomService.sendVoiceMessage(roomId, userId, message.trim());
+        } catch (Exception e) {
+            log.error("Error handling voice message", e);
             return null;
         }
     }
