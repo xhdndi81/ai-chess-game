@@ -126,9 +126,13 @@ function updateStatus() {
                 $('#ai-message').text('상대방이 생각 중입니다... ⏳');
                 // 상대방 차례일 때는 재촉하기 버튼과 말하기 버튼 표시
                 $('#btn-nudge').show();
-                // Web Speech API 지원 여부 확인 후 말하기 버튼 표시
-                if (typeof isSpeechRecognitionSupported === 'function' && isSpeechRecognitionSupported()) {
+                // Web Speech API 지원 여부 및 음성 사용 허용 체크박스 확인 후 말하기 버튼 표시
+                const VOICE_PERMISSION_KEY = 'voicePermissionAllowed';
+                const voicePermissionAllowed = localStorage.getItem(VOICE_PERMISSION_KEY) === 'true';
+                if (typeof isSpeechRecognitionSupported === 'function' && isSpeechRecognitionSupported() && voicePermissionAllowed) {
                     $('#btn-voice-message').show();
+                } else {
+                    $('#btn-voice-message').hide();
                 }
             }
         } else {
@@ -262,7 +266,31 @@ function checkGameOver() {
 
 $(document).ready(function() {
     // 대기방 목록 HTML 로드
-    $('#waiting-rooms-placeholder').load('/waiting-rooms.html');
+    $('#waiting-rooms-placeholder').load('/waiting-rooms.html', function() {
+        // 음성 사용 허용 체크박스 상태 로드 및 저장
+        const VOICE_PERMISSION_KEY = 'voicePermissionAllowed';
+        const voicePermissionCheckbox = $('#voice-permission-checkbox');
+        
+        // localStorage에서 체크박스 상태 로드
+        const savedVoicePermission = localStorage.getItem(VOICE_PERMISSION_KEY);
+        if (savedVoicePermission === 'true') {
+            voicePermissionCheckbox.prop('checked', true);
+        }
+        
+        // 체크박스 변경 시 localStorage에 저장
+        voicePermissionCheckbox.on('change', function() {
+            const isChecked = $(this).is(':checked');
+            localStorage.setItem(VOICE_PERMISSION_KEY, isChecked ? 'true' : 'false');
+            
+            // 체크된 경우 마이크 권한 요청 (이미 게임 중이면 Speech Recognition 초기화)
+            if (isChecked && gameMode === 'multi' && typeof initSpeechRecognition === 'function') {
+                initSpeechRecognition();
+            } else if (!isChecked) {
+                // 체크 해제된 경우 말하기 버튼 숨김
+                $('#btn-voice-message').hide();
+            }
+        });
+    });
 
     $('#btn-new-game').hide();
     

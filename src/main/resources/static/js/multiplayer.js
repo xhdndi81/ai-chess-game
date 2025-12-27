@@ -94,6 +94,16 @@ function initSpeechRecognition() {
         return;
     }
 
+    // localStorage에서 음성 사용 허용 여부 확인
+    const VOICE_PERMISSION_KEY = 'voicePermissionAllowed';
+    const voicePermissionAllowed = localStorage.getItem(VOICE_PERMISSION_KEY) === 'true';
+    
+    if (!voicePermissionAllowed) {
+        console.log('Voice permission not allowed by user');
+        $('#btn-voice-message').hide();
+        return;
+    }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
     
@@ -157,9 +167,9 @@ function initSpeechRecognition() {
         }
     };
     
-    // 마이크 권한을 미리 요청하여 첫 사용 시에만 팝업이 뜨도록 함
+    // 체크박스가 체크되어 있을 때만 마이크 권한 요청
     // 권한이 이미 허용된 경우 팝업이 뜨지 않음
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && voicePermissionAllowed) {
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(function(stream) {
                 // 권한이 허용되었으면 스트림 종료 (실제로는 사용하지 않음)
