@@ -15,9 +15,9 @@ spring:
     serialization:
       write-dates-as-timestamps: false
   datasource:
-    url: ${DATASOURCE_URL:jdbc:mariadb://localhost:3306/chess}
-    username: ${DATASOURCE_USERNAME:chess}
-    password: ${DATASOURCE_PASSWORD:}
+    url: ${DATASOURCE_URL}
+    username: ${DATASOURCE_USERNAME}
+    password: ${DATASOURCE_PASSWORD}
     driver-class-name: org.mariadb.jdbc.Driver
   jpa:
     hibernate:
@@ -29,7 +29,7 @@ spring:
 
 openai:
   api:
-    key: ${OPENAI_API_KEY:your-api-key-here}
+    key: ${OPENAI_API_KEY}
     url: https://api.openai.com/v1/chat/completions
 
 logging:
