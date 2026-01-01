@@ -34,10 +34,15 @@ function startNudgeTimer() {
         if (game.turn() === 'w' && !game.game_over()) {
             const nudges = [
                 "어디로 둘지 결정했니? 😊",
-                `${userName}야, 천천히 생각해도 돼!`,
                 "선생님은 기다리고 있어!",
-                `${userName}야, 어떤 전략을 세우고 있니?`,
-                "선생님은 준비 다 됐어! 천천히 해봐~"
+                "선생님은 준비 다 됐어! 천천히 해봐~",
+                "천천히 생각해도 돼요!",
+                "어떤 전략을 세우고 있나요?",
+                "좋은 수를 찾고 있겠죠?",
+                "시간을 들여서 생각하는 것도 좋아요!",
+                "선생님은 기다릴 수 있어요!",
+                `${userName}야, 천천히 생각해도 돼!`,  // 이름을 부르는 메시지는 1개만 (약 11%)
+                `${userName}야, 어떤 전략을 세우고 있니?`  // 이름을 부르는 메시지 2개 (약 22%)
             ];
             const ment = nudges[Math.floor(Math.random() * nudges.length)];
             $('#ai-message').text(ment);
@@ -109,10 +114,15 @@ function executeMove(moveStr) {
     } else {
         const casualMents = [
             "와! 정말 좋은 수네!",
-            `${userName}야, 실력이 대단한데?`,
             "음, 제 차례군요.",
             "어디로 두면 좋을까?",
-            "선생님도 집중하고 있어요!"
+            "선생님도 집중하고 있어요!",
+            "좋은 수를 두셨네요!",
+            "흥미로운 전개네요.",
+            "제가 신중하게 생각해볼게요.",
+            "좋은 판단이에요!",
+            "이 수가 인상적이네요.",
+            `${userName}야, 실력이 대단한데?`  // 이름을 부르는 메시지는 1개만 (10%)
         ];
         const ment = casualMents[Math.floor(Math.random() * casualMents.length)];
         $('#ai-message').text(ment);

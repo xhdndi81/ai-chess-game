@@ -53,7 +53,8 @@ public class AIService {
         String userPrompt = "현재 FEN 상태: " + request.getFen() +
                 "\n당신의 차례입니다 (" + request.getTurn() + ")" +
                 "\n대결 상대(아이)의 이름: " + request.getUserName() +
-                "\n**반드시 아이의 이름을 부르면서 칭찬이나 격려의 멘트를 작성하세요.**";
+                "\n가끔 이름을 부를 수 있지만, 매번 부르지 말고 자연스럽게 피드백을 제공하세요. " +
+                "이름을 부르는 빈도는 10-20% 정도로 유지하고, 대부분은 이름 없이도 친근하고 격려하는 멘트를 작성하세요.";
 
         Map<String, Object> body = new HashMap<>();
         body.put("model", "gpt-4o-mini");

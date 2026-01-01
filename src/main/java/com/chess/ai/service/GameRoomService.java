@@ -74,17 +74,29 @@ public class GameRoomService {
 
             if (room.getStatus() == GameRoom.RoomStatus.PLAYING) {
                 processDisconnectWin(room, isHost);
+                // 빈 방 정리 확인
+                cleanupEmptyRoom(room);
             } else if (room.getStatus() == GameRoom.RoomStatus.WAITING) {
                 if (isHost) {
                     room.setStatus(GameRoom.RoomStatus.FINISHED);
                     gameRoomRepository.save(room);
                     log.info("Waiting room {} closed because host {} disconnected", room.getId(), userId);
+                    // 빈 방 정리 확인
+                    cleanupEmptyRoom(room);
+                } else if (isGuest) {
+                    // WAITING 상태에서 게스트가 나가는 경우 처리
+                    room.setGuest(null);
+                    gameRoomRepository.save(room);
+                    log.info("Guest {} left waiting room {}", userId, room.getId());
+                    // 게스트가 나가도 호스트는 있으므로 방은 유지 (WAITING 상태 유지)
                 }
             } else if (room.getStatus() == GameRoom.RoomStatus.FINISHED) {
                 if (isGuest) {
                     room.setGuest(null);
                     gameRoomRepository.save(room);
                     log.info("Guest {} left finished room {}", userId, room.getId());
+                    // 빈 방 정리 확인
+                    cleanupEmptyRoom(room);
                 } else if (isHost) {
                     // 방장이 종료된 방에서 나가는 경우
                     log.info("Host {} left finished room {}", userId, room.getId());
@@ -95,52 +107,90 @@ public class GameRoomService {
                         notification.put("message", "방장이 나갔습니다. 방이 닫힙니다.");
                         messagingTemplate.convertAndSend("/topic/game/" + room.getId(), notification);
                     }
+                    // 호스트가 나간 경우 방 삭제 (게스트가 없으면)
+                    cleanupEmptyRoom(room);
                 }
             }
         }
     }
 
     private void processDisconnectWin(GameRoom room, boolean isHost) {
-        String winner = isHost ? "b" : "w";
-        User winnerUser = isHost ? room.getGuest() : room.getHost();
-        User loserUser = isHost ? room.getHost() : room.getGuest();
-        
-        String winnerName = winnerUser != null ? winnerUser.getName() : "상대방";
-        String loserName = loserUser != null ? loserUser.getName() : "상대방";
-        
-        room.setStatus(GameRoom.RoomStatus.FINISHED);
-        
-        // ChessGameData 업데이트
-        ChessGameData chessData = chessGameDataRepository.findByRoom(room)
-                .orElseThrow(() -> new IllegalStateException("ChessGameData not found for room " + room.getId()));
-        chessData.setWinner(winner);
-        chessGameDataRepository.save(chessData);
-        
-        // 승패 기록 저장 (나간 사람 포함)
-        saveGameHistory(winnerUser, GameHistory.GameResult.WIN, loserName, GameHistory.GameType.CHESS);
-        saveGameHistory(loserUser, GameHistory.GameResult.LOSS, winnerName, GameHistory.GameType.CHESS);
-        
-        // 게스트가 나간 경우 게스트 정보 초기화
-        if (!isHost) {
-            room.setGuest(null);
+        try {
+            String winner = isHost ? "b" : "w";
+            User winnerUser = isHost ? room.getGuest() : room.getHost();
+            User loserUser = isHost ? room.getHost() : room.getGuest();
+            
+            String winnerName = winnerUser != null ? winnerUser.getName() : "상대방";
+            String loserName = loserUser != null ? loserUser.getName() : "상대방";
+            
+            room.setStatus(GameRoom.RoomStatus.FINISHED);
+            
+            // ChessGameData 업데이트
+            ChessGameData chessData = chessGameDataRepository.findByRoom(room)
+                    .orElseThrow(() -> new IllegalStateException("ChessGameData not found for room " + room.getId()));
+            chessData.setWinner(winner);
+            chessGameDataRepository.save(chessData);
+            
+            // 승패 기록 저장 (나간 사람 포함)
+            saveGameHistory(winnerUser, GameHistory.GameResult.WIN, loserName, GameHistory.GameType.CHESS);
+            saveGameHistory(loserUser, GameHistory.GameResult.LOSS, winnerName, GameHistory.GameType.CHESS);
+            
+            // 게스트가 나간 경우 게스트 정보 초기화
+            if (!isHost) {
+                room.setGuest(null);
+            }
+            
+            gameRoomRepository.save(room);
+            
+            // 남은 플레이어에게 알림 전송 (예외 발생 가능성 처리)
+            try {
+                GameStateDto gameState = getGameState(room.getId());
+                Map<String, Object> notification = new HashMap<>();
+                notification.put("fen", gameState.getFen());
+                notification.put("turn", gameState.getTurn());
+                notification.put("status", "FINISHED");
+                notification.put("isGameOver", true);
+                notification.put("winner", winner);
+                notification.put("hostName", gameState.getHostName());
+                notification.put("guestName", gameState.getGuestName());
+                notification.put("message", loserName + "님이 나갔습니다. " + winnerName + "님이 승리했습니다!");
+                
+                messagingTemplate.convertAndSend("/topic/game/" + room.getId(), notification);
+                log.info("User in room {} disconnected. Automatic win for {}", room.getId(), winner);
+            } catch (Exception e) {
+                // getGameState 실패 시에도 기본 알림 전송
+                log.warn("Failed to get game state for room {}, sending basic notification: {}", room.getId(), e.getMessage());
+                Map<String, Object> notification = new HashMap<>();
+                notification.put("status", "FINISHED");
+                notification.put("isGameOver", true);
+                notification.put("winner", winner);
+                notification.put("hostName", room.getHost() != null ? room.getHost().getName() : "방장");
+                notification.put("guestName", room.getGuest() != null ? room.getGuest().getName() : null);
+                notification.put("message", loserName + "님이 나갔습니다. " + winnerName + "님이 승리했습니다!");
+                messagingTemplate.convertAndSend("/topic/game/" + room.getId(), notification);
+                log.info("User in room {} disconnected. Automatic win for {} (basic notification)", room.getId(), winner);
+            }
+        } catch (Exception e) {
+            // 예외 발생 시에도 방 상태를 FINISHED로 변경하고 게스트 정보 초기화
+            log.error("Error processing disconnect win for room {}: {}", room.getId(), e.getMessage(), e);
+            try {
+                room.setStatus(GameRoom.RoomStatus.FINISHED);
+                if (!isHost && room.getGuest() != null) {
+                    room.setGuest(null);
+                }
+                gameRoomRepository.save(room);
+                log.info("Room {} status set to FINISHED after error", room.getId());
+                
+                // 기본 알림 전송
+                Map<String, Object> notification = new HashMap<>();
+                notification.put("status", "FINISHED");
+                notification.put("isGameOver", true);
+                notification.put("message", "상대방이 나갔습니다. 게임이 종료되었습니다.");
+                messagingTemplate.convertAndSend("/topic/game/" + room.getId(), notification);
+            } catch (Exception ex) {
+                log.error("Failed to update room {} status after error: {}", room.getId(), ex.getMessage(), ex);
+            }
         }
-        
-        gameRoomRepository.save(room);
-        
-        // 남은 플레이어에게 알림 전송
-        GameStateDto gameState = getGameState(room.getId());
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("fen", gameState.getFen());
-        notification.put("turn", gameState.getTurn());
-        notification.put("status", "FINISHED");
-        notification.put("isGameOver", true);
-        notification.put("winner", winner);
-        notification.put("hostName", gameState.getHostName());
-        notification.put("guestName", gameState.getGuestName());
-        notification.put("message", loserName + "님이 나갔습니다. " + winnerName + "님이 승리했습니다!");
-        
-        messagingTemplate.convertAndSend("/topic/game/" + room.getId(), notification);
-        log.info("User in room {} disconnected. Automatic win for {}", room.getId(), winner);
     }
 
     private void saveGameHistory(User user, GameHistory.GameResult result, String opponentName, GameHistory.GameType gameType) {
@@ -154,6 +204,34 @@ public class GameRoomService {
         history.setMovesCount(0); // 기권/이탈 시 수 카운트는 일단 0으로 처리
         gameHistoryRepository.save(history);
         log.info("Saved game history for user {}: {}", user.getName(), result);
+    }
+
+    /**
+     * 방 삭제 조건을 확인하는 헬퍼 메서드
+     * 두 플레이어가 모두 없고 FINISHED 상태인 방은 삭제 대상
+     */
+    private boolean shouldDeleteRoom(GameRoom room) {
+        // FINISHED 상태이고 게스트가 없는 경우 삭제 가능
+        // 호스트는 항상 존재하므로, 실제로는 게스트가 없고 FINISHED 상태인 방을 삭제
+        // 단, 호스트가 연결 해제된 경우를 고려해야 함
+        return room.getStatus() == GameRoom.RoomStatus.FINISHED && room.getGuest() == null;
+    }
+
+    /**
+     * 빈 방을 정리하는 메서드
+     * 두 플레이어가 모두 없고 FINISHED 상태인 방을 삭제
+     */
+    @Transactional
+    private void cleanupEmptyRoom(GameRoom room) {
+        if (shouldDeleteRoom(room)) {
+            try {
+                // ChessGameData도 함께 삭제됨 (CASCADE 설정에 따라)
+                gameRoomRepository.delete(room);
+                log.info("Empty room {} has been deleted", room.getId());
+            } catch (Exception e) {
+                log.error("Error deleting empty room {}: {}", room.getId(), e.getMessage(), e);
+            }
+        }
     }
 
     public List<RoomDto> getWaitingRooms() {
