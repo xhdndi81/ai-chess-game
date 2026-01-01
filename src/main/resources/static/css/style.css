@@ -86,25 +86,38 @@ button:active {
     padding: 8px 15px;
     background-color: #fff;
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    align-items: flex-start;
+    align-items: stretch;
     justify-content: space-between;
     height: auto; /* 높이를 내용에 맞게 유동적으로 */
     min-height: 80px;
     box-sizing: border-box;
     z-index: 100;
     overflow: visible;
+    gap: 12px;
 }
 
 .ai-chat-area {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
-    max-width: calc(100% - 200px); /* 버튼 영역을 위한 공간 확보 */
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 .ai-character {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    align-items: stretch;
+    gap: 0;
+    height: 100%;
+    width: 100%;
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
 }
 
 #ai-img {
@@ -113,6 +126,8 @@ button:active {
     background-color: #eee;
     border-radius: 50%;
     flex-shrink: 0;
+    align-self: flex-start;
+    margin-right: 8px;
 }
 
 .speech-bubble {
@@ -129,6 +144,15 @@ button:active {
     max-height: none; /* 스크롤 제거 */
     overflow-y: visible; /* 내용이 다 보이도록 */
     font-weight: 500;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    width: auto;
+    display: flex;
+    align-items: center;
+    min-height: 0;
+    box-sizing: border-box;
+    margin: 0;
 }
 
 .speech-bubble:after {
@@ -145,16 +169,16 @@ button:active {
     margin-left: -6px;
 }
 
-.header-right {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-    margin-left: 12px;
-    flex-shrink: 0;
-    min-width: 180px; /* 버튼 영역 최소 너비 확보 */
-    max-width: 200px; /* 버튼 영역 최대 너비 제한 */
-}
+    .header-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        margin-left: 12px;
+        flex-shrink: 0;
+        min-width: 180px; /* 버튼 영역 최소 너비 확보 */
+        max-width: 200px; /* 버튼 영역 최대 너비 제한 */
+    }
 
 .status-container {
     background-color: #e3f2fd;
@@ -294,7 +318,22 @@ button:active {
     .ai-chat-area {
         flex: 1;
         min-width: 0;
-        max-width: calc(100% - 160px);
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .ai-character {
+        width: 100%;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .speech-bubble {
+        width: 100%;
+        flex: 1;
+        min-width: 0;
     }
     
     .header-right {
@@ -344,7 +383,22 @@ button:active {
     .ai-chat-area {
         flex: 1;
         min-width: 0;
-        max-width: calc(100% - 200px);
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .ai-character {
+        width: 100%;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .speech-bubble {
+        width: 100%;
+        flex: 1;
+        min-width: 0;
     }
     
     .header-right {
@@ -389,22 +443,32 @@ button:active {
     .ai-chat-area {
         margin-bottom: 20px;
         width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
 
     .ai-character {
         flex-direction: column;
         text-align: center;
+        height: 100%;
+        width: 100%;
     }
 
     #ai-img {
         width: 60px;
         height: 60px;
+        align-self: center;
     }
 
     .speech-bubble {
-        max-height: 180px;
+        max-height: none;
         margin-top: 10px;
         font-size: 1.1rem;
+        flex: 1;
+        width: 100%;
+        display: flex;
+        align-items: center;
     }
 
     .speech-bubble:after {
